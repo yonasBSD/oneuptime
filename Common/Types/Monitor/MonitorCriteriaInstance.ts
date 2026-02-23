@@ -476,7 +476,9 @@ export default class MonitorCriteriaInstance extends DatabaseProperty {
     }
 
     return null;
-  }(arg: {
+  }
+
+  public static getDefaultOfflineMonitorCriteriaInstance(arg: {
     monitorType: MonitorType;
     monitorStatusId: ObjectID;
     incidentSeverityId: ObjectID;
@@ -696,6 +698,7 @@ export default class MonitorCriteriaInstance extends DatabaseProperty {
 
     if (
       arg.monitorType === MonitorType.API ||
+      arg.monitorType === MonitorType.Website
     ) {
       monitorCriteriaInstance.data = {
         id: ObjectID.generate().toString(),
