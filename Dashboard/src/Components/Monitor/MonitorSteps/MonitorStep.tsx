@@ -339,17 +339,6 @@ const MonitorStepElement: FunctionComponent<ComponentProps> = (
       },
       {
         key: "externalStatusPageMonitor",
-        title: "Provider",
-        description: "The provider type for this status page.",
-        fieldType: FieldType.Element,
-        placeholder: "Auto",
-        getElement: (item: MonitorStepType): ReactElement => {
-          const externalStatusPageMonitor: any = item.externalStatusPageMonitor;
-          return <p>{externalStatusPageMonitor?.provider || "Auto"}</p>;
-        },
-      },
-      {
-        key: "externalStatusPageMonitor",
         title: "Component Name Filter",
         description:
           "If set, only this specific component will be monitored.",

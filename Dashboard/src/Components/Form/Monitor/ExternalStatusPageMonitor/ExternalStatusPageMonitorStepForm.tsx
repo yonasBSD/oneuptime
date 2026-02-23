@@ -1,14 +1,8 @@
 import React, { FunctionComponent, ReactElement, useState } from "react";
 import MonitorStepExternalStatusPageMonitor from "Common/Types/Monitor/MonitorStepExternalStatusPageMonitor";
-import ExternalStatusPageProviderType from "Common/Types/Monitor/ExternalStatusPageProviderType";
 import Input, { InputType } from "Common/UI/Components/Input/Input";
-import Dropdown, {
-  DropdownOption,
-  DropdownValue,
-} from "Common/UI/Components/Dropdown/Dropdown";
 import FieldLabelElement from "Common/UI/Components/Forms/Fields/FieldLabel";
 import Button, { ButtonStyleType } from "Common/UI/Components/Button/Button";
-import DropdownUtil from "Common/UI/Utils/Dropdown";
 
 export interface ComponentProps {
   monitorStepExternalStatusPageMonitor: MonitorStepExternalStatusPageMonitor;
@@ -20,9 +14,6 @@ const ExternalStatusPageMonitorStepForm: FunctionComponent<ComponentProps> = (
 ): ReactElement => {
   const [showAdvancedOptions, setShowAdvancedOptions] =
     useState<boolean>(false);
-
-  const providerOptions: Array<DropdownOption> =
-    DropdownUtil.getDropdownOptionsFromEnum(ExternalStatusPageProviderType);
 
   return (
     <div className="space-y-5">
@@ -41,29 +32,6 @@ const ExternalStatusPageMonitorStepForm: FunctionComponent<ComponentProps> = (
             props.onChange({
               ...props.monitorStepExternalStatusPageMonitor,
               statusPageUrl: value,
-            });
-          }}
-        />
-      </div>
-
-      <div>
-        <FieldLabelElement
-          title="Provider Type"
-          description="How to fetch status data. Auto will try Atlassian Statuspage JSON API first, then fall back to RSS/Atom."
-          required={true}
-        />
-        <Dropdown
-          options={providerOptions}
-          initialValue={providerOptions.find((option: DropdownOption) => {
-            return (
-              option.value ===
-              props.monitorStepExternalStatusPageMonitor.provider
-            );
-          })}
-          onChange={(value: DropdownValue | Array<DropdownValue> | null) => {
-            props.onChange({
-              ...props.monitorStepExternalStatusPageMonitor,
-              provider: value as ExternalStatusPageProviderType,
             });
           }}
         />
