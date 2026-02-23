@@ -321,7 +321,7 @@ export default class VMRunner {
         const axios = _makeAxiosInstance(null);
       `);
 
-      // crypto (createHash, createHmac, randomBytes) - bridged via applySync
+      // crypto (createHash, createHmac, randomBytes, randomUUID, randomInt) - bridged via applySync
       const cryptoRef: ivm.Reference<
         (op: string, ...args: string[]) => string
       > = new ivm.Reference((op: string, ...args: string[]): string => {
@@ -343,6 +343,13 @@ export default class VMRunner {
           case "randomBytes": {
             const [size] = args;
             return crypto.randomBytes(parseInt(size!)).toString("hex");
+          }
+          case "randomUUID": {
+            return crypto.randomUUID();
+          }
+          case "randomInt": {
+            const [min, max] = args;
+            return String(crypto.randomInt(parseInt(min!), parseInt(max!)));
           }
           default:
             throw new Error(`Unsupported crypto operation: ${op}`);
@@ -366,6 +373,13 @@ export default class VMRunner {
           randomBytes: (size) => ({
             toString(enc) { return _cryptoRef.applySync(undefined, ['randomBytes', String(size)]); }
           }),
+          randomUUID: () => {
+            return _cryptoRef.applySync(undefined, ['randomUUID']);
+          },
+          randomInt: (minOrMax, max) => {
+            if (max === undefined) { max = minOrMax; minOrMax = 0; }
+            return Number(_cryptoRef.applySync(undefined, ['randomInt', String(minOrMax), String(max)]));
+          },
         };
       `);
 
