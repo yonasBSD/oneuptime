@@ -1,5 +1,5 @@
-import DocsRoutes from "./Routes";
-import APIReferenceRoutes from "./APIReference/Routes";
+import DocsRoutes from "./Services/Docs/Routes";
+import APIReferenceRoutes from "./Services/APIReference/Routes";
 import { PromiseVoidFunction } from "Common/Types/FunctionTypes";
 import InfrastructureStatus from "Common/Server/Infrastructure/Status";
 import logger from "Common/Server/Utils/Logger";
