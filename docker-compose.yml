@@ -91,14 +91,6 @@ services:
         depends_on:
             <<: *common-depends-on
 
-    api-reference:
-        image:  oneuptime/api-reference:${APP_TAG}
-        extends:
-            file: ./docker-compose.base.yml
-            service: api-reference
-        depends_on:
-            <<: *common-depends-on
-
     workflow:
         image:  oneuptime/workflow:${APP_TAG}
         extends:
