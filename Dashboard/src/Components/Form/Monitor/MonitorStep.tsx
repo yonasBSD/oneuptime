@@ -83,6 +83,10 @@ import DomainMonitorStepForm from "./DomainMonitor/DomainMonitorStepForm";
 import MonitorStepDomainMonitor, {
   MonitorStepDomainMonitorUtil,
 } from "Common/Types/Monitor/MonitorStepDomainMonitor";
+import ExternalStatusPageMonitorStepForm from "./ExternalStatusPageMonitor/ExternalStatusPageMonitorStepForm";
+import MonitorStepExternalStatusPageMonitor, {
+  MonitorStepExternalStatusPageMonitorUtil,
+} from "Common/Types/Monitor/MonitorStepExternalStatusPageMonitor";
 
 export interface ComponentProps {
   monitorStatusDropdownOptions: Array<DropdownOption>;
@@ -828,6 +832,24 @@ return {
             }
             onChange={(value: MonitorStepDomainMonitor) => {
               monitorStep.setDomainMonitor(value);
+              props.onChange?.(MonitorStep.clone(monitorStep));
+            }}
+          />
+        </Card>
+      )}
+
+      {props.monitorType === MonitorType.ExternalStatusPage && (
+        <Card
+          title="External Status Page Configuration"
+          description="Configure which external status page to monitor (e.g. AWS, GCP, GitHub)"
+        >
+          <ExternalStatusPageMonitorStepForm
+            monitorStepExternalStatusPageMonitor={
+              monitorStep.data?.externalStatusPageMonitor ||
+              MonitorStepExternalStatusPageMonitorUtil.getDefault()
+            }
+            onChange={(value: MonitorStepExternalStatusPageMonitor) => {
+              monitorStep.setExternalStatusPageMonitor(value);
               props.onChange?.(MonitorStep.clone(monitorStep));
             }}
           />

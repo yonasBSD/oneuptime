@@ -135,6 +135,15 @@ export class Service extends DatabaseService<Model> {
             monitorDestination = `${monitorDestination} @${firstStep.data.dnsMonitor.hostname}`;
           }
         }
+
+        // For External Status Page monitors, use the statusPageUrl
+        if (
+          monitorType === MonitorType.ExternalStatusPage &&
+          firstStep?.data?.externalStatusPageMonitor
+        ) {
+          monitorDestination =
+            firstStep.data.externalStatusPageMonitor.statusPageUrl || "";
+        }
       }
     }
 

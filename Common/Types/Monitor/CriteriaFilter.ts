@@ -74,6 +74,13 @@ export enum CheckOn {
   DomainNameServer = "Domain Name Server",
   DomainStatusCode = "Domain Status Code",
   DomainIsExpired = "Domain Is Expired",
+
+  // External Status Page monitors.
+  ExternalStatusPageIsOnline = "External Status Page Is Online",
+  ExternalStatusPageOverallStatus = "External Status Page Overall Status",
+  ExternalStatusPageComponentStatus = "External Status Page Component Status",
+  ExternalStatusPageActiveIncidents = "External Status Page Active Incidents",
+  ExternalStatusPageResponseTime = "External Status Page Response Time (in ms)",
 }
 
 export interface ServerMonitorOptions {
@@ -159,7 +166,8 @@ export class CriteriaFilterUtil {
       checkOn === CheckOn.IsOnline ||
       checkOn === CheckOn.SnmpIsOnline ||
       checkOn === CheckOn.DnsIsOnline ||
-      checkOn === CheckOn.DomainIsExpired
+      checkOn === CheckOn.DomainIsExpired ||
+      checkOn === CheckOn.ExternalStatusPageIsOnline
     ) {
       return false;
     }
@@ -229,7 +237,9 @@ export class CriteriaFilterUtil {
       checkOn === CheckOn.SnmpResponseTime ||
       checkOn === CheckOn.SnmpIsOnline ||
       checkOn === CheckOn.DnsResponseTime ||
-      checkOn === CheckOn.DnsIsOnline
+      checkOn === CheckOn.DnsIsOnline ||
+      checkOn === CheckOn.ExternalStatusPageResponseTime ||
+      checkOn === CheckOn.ExternalStatusPageIsOnline
     );
   }
 }

@@ -9,6 +9,7 @@ import WebsiteMonitorSummaryView from "./WebsiteMonitorView";
 import SnmpMonitorView from "./SnmpMonitorView";
 import DnsMonitorView from "./DnsMonitorView";
 import DomainMonitorView from "./DomainMonitorView";
+import ExternalStatusPageMonitorView from "./ExternalStatusPageMonitorView";
 import IncomingMonitorRequest from "Common/Types/Monitor/IncomingMonitor/IncomingMonitorRequest";
 import IncomingEmailMonitorRequest from "Common/Types/Monitor/IncomingEmailMonitor/IncomingEmailMonitorRequest";
 import MonitorType, {
@@ -135,6 +136,15 @@ const SummaryInfo: FunctionComponent<ComponentProps> = (
     if (props.monitorType === MonitorType.Domain) {
       summaryComponent = (
         <DomainMonitorView
+          probeMonitorResponse={probeMonitorResponse}
+          probeName={props.probeName}
+        />
+      );
+    }
+
+    if (props.monitorType === MonitorType.ExternalStatusPage) {
+      summaryComponent = (
+        <ExternalStatusPageMonitorView
           probeMonitorResponse={probeMonitorResponse}
           probeName={props.probeName}
         />

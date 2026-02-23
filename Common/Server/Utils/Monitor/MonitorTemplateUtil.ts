@@ -18,6 +18,9 @@ import DnsMonitorResponse, {
   DnsRecordResponse,
 } from "../../../Types/Monitor/DnsMonitor/DnsMonitorResponse";
 import DomainMonitorResponse from "../../../Types/Monitor/DomainMonitor/DomainMonitorResponse";
+import ExternalStatusPageMonitorResponse, {
+  ExternalStatusPageComponentStatus,
+} from "../../../Types/Monitor/ExternalStatusPageMonitor/ExternalStatusPageMonitorResponse";
 import Typeof from "../../../Types/Typeof";
 import VMUtil from "../VM/VMAPI";
 import DataToProcess from "./DataToProcess";
@@ -297,6 +300,36 @@ export default class MonitorTemplateUtil {
           domainStatus: domainResponse?.domainStatus,
           dnssec: domainResponse?.dnssec,
         } as JSONObject;
+      }
+
+      if (data.monitorType === MonitorType.ExternalStatusPage) {
+        const externalStatusPageResponse:
+          | ExternalStatusPageMonitorResponse
+          | undefined = (data.dataToProcess as ProbeMonitorResponse)
+          .externalStatusPageResponse;
+
+        storageMap = {
+          isOnline: (data.dataToProcess as ProbeMonitorResponse).isOnline,
+          responseTimeInMs: externalStatusPageResponse?.responseTimeInMs,
+          failureCause: externalStatusPageResponse?.failureCause,
+          overallStatus: externalStatusPageResponse?.overallStatus,
+          activeIncidentCount:
+            externalStatusPageResponse?.activeIncidentCount,
+        } as JSONObject;
+
+        // Add component statuses
+        if (externalStatusPageResponse?.componentStatuses) {
+          storageMap["componentStatuses"] =
+            externalStatusPageResponse.componentStatuses.map(
+              (component: ExternalStatusPageComponentStatus) => {
+                return {
+                  name: component.name,
+                  status: component.status,
+                  description: component.description,
+                };
+              },
+            );
+        }
       }
     } catch (err) {
       logger.error(err);

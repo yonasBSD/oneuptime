@@ -35,6 +35,9 @@ import MonitorStepDnsMonitor, {
 import MonitorStepDomainMonitor, {
   MonitorStepDomainMonitorUtil,
 } from "./MonitorStepDomainMonitor";
+import MonitorStepExternalStatusPageMonitor, {
+  MonitorStepExternalStatusPageMonitorUtil,
+} from "./MonitorStepExternalStatusPageMonitor";
 import Zod, { ZodSchema } from "../../Utils/Schema/Zod";
 
 export interface MonitorStepType {
@@ -84,6 +87,9 @@ export interface MonitorStepType {
 
   // Domain monitor
   domainMonitor?: MonitorStepDomainMonitor | undefined;
+
+  // External Status Page monitor
+  externalStatusPageMonitor?: MonitorStepExternalStatusPageMonitor | undefined;
 }
 
 export default class MonitorStep extends DatabaseProperty {
@@ -112,6 +118,7 @@ export default class MonitorStep extends DatabaseProperty {
       snmpMonitor: undefined,
       dnsMonitor: undefined,
       domainMonitor: undefined,
+      externalStatusPageMonitor: undefined,
     };
   }
 
@@ -145,6 +152,7 @@ export default class MonitorStep extends DatabaseProperty {
       snmpMonitor: undefined,
       dnsMonitor: undefined,
       domainMonitor: undefined,
+      externalStatusPageMonitor: undefined,
     };
 
     return monitorStep;
@@ -249,6 +257,13 @@ export default class MonitorStep extends DatabaseProperty {
     domainMonitor: MonitorStepDomainMonitor,
   ): MonitorStep {
     this.data!.domainMonitor = domainMonitor;
+    return this;
+  }
+
+  public setExternalStatusPageMonitor(
+    externalStatusPageMonitor: MonitorStepExternalStatusPageMonitor,
+  ): MonitorStep {
+    this.data!.externalStatusPageMonitor = externalStatusPageMonitor;
     return this;
   }
 
@@ -380,6 +395,16 @@ export default class MonitorStep extends DatabaseProperty {
       }
     }
 
+    if (monitorType === MonitorType.ExternalStatusPage) {
+      if (!value.data.externalStatusPageMonitor) {
+        return "External status page configuration is required";
+      }
+
+      if (!value.data.externalStatusPageMonitor.statusPageUrl) {
+        return "Status page URL is required";
+      }
+    }
+
     return null;
   }
 
@@ -430,6 +455,11 @@ export default class MonitorStep extends DatabaseProperty {
             : undefined,
           domainMonitor: this.data.domainMonitor
             ? MonitorStepDomainMonitorUtil.toJSON(this.data.domainMonitor)
+            : undefined,
+          externalStatusPageMonitor: this.data.externalStatusPageMonitor
+            ? MonitorStepExternalStatusPageMonitorUtil.toJSON(
+                this.data.externalStatusPageMonitor,
+              )
             : undefined,
         },
       });
@@ -542,6 +572,9 @@ export default class MonitorStep extends DatabaseProperty {
       domainMonitor: json["domainMonitor"]
         ? (json["domainMonitor"] as JSONObject)
         : undefined,
+      externalStatusPageMonitor: json["externalStatusPageMonitor"]
+        ? (json["externalStatusPageMonitor"] as JSONObject)
+        : undefined,
     }) as any;
 
     return monitorStep;
@@ -569,6 +602,7 @@ export default class MonitorStep extends DatabaseProperty {
         snmpMonitor: Zod.any().optional(),
         dnsMonitor: Zod.any().optional(),
         domainMonitor: Zod.any().optional(),
+        externalStatusPageMonitor: Zod.any().optional(),
       }).openapi({
         type: "object",
         example: {

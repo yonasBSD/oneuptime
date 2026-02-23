@@ -257,6 +257,31 @@ export default class MonitorUtil {
       }
     }
 
+    if (monitorType === MonitorType.ExternalStatusPage) {
+      for (const monitorStep of monitorSteps?.data?.monitorStepsInstanceArray ||
+        []) {
+        // Handle External Status Page URL secrets
+        if (
+          monitorStep.data?.externalStatusPageMonitor?.statusPageUrl &&
+          this.hasSecrets(
+            monitorStep.data.externalStatusPageMonitor.statusPageUrl,
+          )
+        ) {
+          if (!isSecretsLoaded) {
+            monitorSecrets = await MonitorUtil.loadMonitorSecrets(monitorId);
+            isSecretsLoaded = true;
+          }
+
+          monitorStep.data.externalStatusPageMonitor.statusPageUrl =
+            (await MonitorUtil.fillSecretsInStringOrJSON({
+              secrets: monitorSecrets,
+              populateSecretsIn:
+                monitorStep.data.externalStatusPageMonitor.statusPageUrl,
+            })) as string;
+        }
+      }
+    }
+
     return monitorSteps;
   }
 

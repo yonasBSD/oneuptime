@@ -183,6 +183,10 @@ const DocsNav: NavGroup[] = [
         url: "/docs/monitor/incoming-email-monitor",
       },
       {
+        title: "External Status Page Monitor",
+        url: "/docs/monitor/external-status-page-monitor",
+      },
+      {
         title: "JavaScript Expressions",
         url: "/docs/monitor/javascript-expression",
       },
