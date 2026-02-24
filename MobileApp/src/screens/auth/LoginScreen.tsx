@@ -17,6 +17,7 @@ import { useNavigation } from "@react-navigation/native";
 import { AuthStackParamList } from "../../navigation/types";
 import Logo from "../../components/Logo";
 import GradientButton from "../../components/GradientButton";
+import { getFriendlyErrorMessage } from "../../utils/error";
 
 type LoginNavigationProp = NativeStackNavigationProp<
   AuthStackParamList,
@@ -56,12 +57,8 @@ export default function LoginScreen(): React.JSX.Element {
           "Two-factor authentication is not yet supported in the mobile app. Please disable 2FA temporarily or use the web dashboard.",
         );
       }
-    } catch (err: any) {
-      const message: string =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Login failed. Please check your credentials.";
-      setError(message);
+    } catch (err: unknown) {
+      setError(getFriendlyErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
