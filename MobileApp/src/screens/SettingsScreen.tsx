@@ -47,6 +47,7 @@ function SettingsRow({
       style={{
         paddingHorizontal: 16,
         minHeight: 52,
+        justifyContent: "center",
         ...(!isLast
           ? {
               borderBottomWidth: 1,
