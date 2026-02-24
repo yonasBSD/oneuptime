@@ -37,6 +37,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.oneuptime.oncall",
+      "versionCode": 2,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.USE_BIOMETRIC",
