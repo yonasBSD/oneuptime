@@ -11,6 +11,11 @@ on:
         required: false
         type: boolean
         default: false
+      publish_ios_to_store:
+        description: 'Publish iOS app to App Store'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   generate-build-number:
@@ -2473,4 +2478,150 @@ jobs:
           releaseFiles: MobileApp/android/app/build/outputs/bundle/release/*.aab
           track: production
           status: completed
+
+
+  # Publish iOS app to App Store.
+  # This job only runs when manually triggered via workflow_dispatch with publish_ios_to_store=true.
+  # Required secrets:
+  #   - IOS_DISTRIBUTION_CERTIFICATE_BASE64: Base64-encoded P12 distribution certificate
+  #   - IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: Password for the P12 certificate
+  #   - IOS_PROVISIONING_PROFILE_BASE64: Base64-encoded App Store distribution provisioning profile
+  #   - APP_STORE_CONNECT_API_KEY_ID: App Store Connect API key ID
+  #   - APP_STORE_CONNECT_API_ISSUER_ID: App Store Connect API issuer ID
+  #   - APP_STORE_CONNECT_API_KEY_BASE64: Base64-encoded App Store Connect API private key (.p8)
+  publish-ios-to-app-store:
+    needs: [generate-build-number, read-version]
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish_ios_to_store == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: latest
+
+      - name: Install dependencies
+        run: cd MobileApp && npm install
+
+      - name: Generate native iOS project
+        run: cd MobileApp && npx expo prebuild --platform ios --no-install
+
+      - name: Install CocoaPods dependencies
+        run: cd MobileApp/ios && pod install
+
+      - name: Setup Apple signing certificate and provisioning profile
+        env:
+          IOS_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          # Create a temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import distribution certificate
+          CERTIFICATE_PATH=$RUNNER_TEMP/distribution_certificate.p12
+          echo "$IOS_DISTRIBUTION_CERTIFICATE_BASE64" | base64 --decode > $CERTIFICATE_PATH
+          security import $CERTIFICATE_PATH -P "$IOS_DISTRIBUTION_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # Install provisioning profile
+          PROFILE_PATH=$RUNNER_TEMP/distribution_profile.mobileprovision
+          echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > $PROFILE_PATH
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i $PROFILE_PATH))
+          cp $PROFILE_PATH ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.mobileprovision
+
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+          echo "PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
+
+      - name: Build iOS archive
+        run: |
+          cd MobileApp/ios
+          xcodebuild archive \
+            -workspace OneUptimeOnCall.xcworkspace \
+            -scheme OneUptimeOnCall \
+            -configuration Release \
+            -archivePath $RUNNER_TEMP/OneUptimeOnCall.xcarchive \
+            -destination 'generic/platform=iOS' \
+            MARKETING_VERSION=${{ needs.read-version.outputs.major_minor }} \
+            CURRENT_PROJECT_VERSION=${{ needs.generate-build-number.outputs.build_number }} \
+            CODE_SIGN_STYLE=Manual \
+            OTHER_CODE_SIGN_FLAGS="--keychain ${{ env.KEYCHAIN_PATH }}" \
+            -allowProvisioningUpdates
+
+      - name: Export IPA
+        run: |
+          # Create export options plist
+          cat > $RUNNER_TEMP/ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>destination</key>
+            <string>upload</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.oneuptime.oncall</key>
+              <string>${{ env.PROFILE_UUID }}</string>
+            </dict>
+            <key>uploadSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/OneUptimeOnCall.xcarchive \
+            -exportOptionsPlist $RUNNER_TEMP/ExportOptions.plist \
+            -exportPath $RUNNER_TEMP/ios-export
+
+      - name: Upload IPA as build artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-ipa-${{ needs.read-version.outputs.major_minor }}
+          path: ${{ runner.temp }}/ios-export/*.ipa
+          retention-days: 90
+
+      - name: Upload to App Store Connect
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        run: |
+          # Decode API key
+          API_KEY_PATH=$RUNNER_TEMP/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8
+          echo "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 --decode > $API_KEY_PATH
+
+          xcrun notarytool store-credentials "appstore-credentials" \
+            --key $API_KEY_PATH \
+            --key-id $APP_STORE_CONNECT_API_KEY_ID \
+            --issuer $APP_STORE_CONNECT_API_ISSUER_ID 2>/dev/null || true
+
+          xcrun altool --upload-app \
+            --type ios \
+            --file $(find $RUNNER_TEMP/ios-export -name '*.ipa' -print -quit) \
+            --apiKey $APP_STORE_CONNECT_API_KEY_ID \
+            --apiIssuer $APP_STORE_CONNECT_API_ISSUER_ID
+
+      - name: Cleanup signing artifacts
+        if: always()
+        run: |
+          security delete-keychain ${{ env.KEYCHAIN_PATH }} 2>/dev/null || true
+          rm -f $RUNNER_TEMP/distribution_certificate.p12
+          rm -f $RUNNER_TEMP/distribution_profile.mobileprovision
+          rm -f $RUNNER_TEMP/AuthKey_*.p8
 
