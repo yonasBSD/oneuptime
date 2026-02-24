@@ -171,6 +171,7 @@ export default function SettingsScreen(): React.JSX.Element {
 
   return (
     <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
       style={{ backgroundColor: theme.colors.backgroundPrimary }}
       contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
     >

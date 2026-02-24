@@ -81,7 +81,7 @@ export default function MyOnCallPoliciesScreen(): React.JSX.Element {
       <View
         style={{ flex: 1, backgroundColor: theme.colors.backgroundPrimary }}
       >
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 44 }}>
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: 16, paddingBottom: 44 }}>
           <View
             style={{
               borderRadius: 24,
@@ -123,6 +123,7 @@ export default function MyOnCallPoliciesScreen(): React.JSX.Element {
 
   return (
     <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
       style={{ backgroundColor: theme.colors.backgroundPrimary }}
       contentContainerStyle={{ padding: 20, paddingBottom: 56 }}
       refreshControl={
