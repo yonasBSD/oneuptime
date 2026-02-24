@@ -22,6 +22,7 @@ const APP_VERSION: string = "1.0.0";
 interface SettingsRowProps {
   label: string;
   value?: string;
+  valueBelowLabel?: string;
   onPress?: () => void;
   rightElement?: React.ReactNode;
   destructive?: boolean;
@@ -32,6 +33,7 @@ interface SettingsRowProps {
 function SettingsRow({
   label,
   value,
+  valueBelowLabel,
   onPress,
   rightElement,
   destructive,
@@ -43,9 +45,6 @@ function SettingsRow({
   const content: React.JSX.Element = (
     <View
       style={{
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
         paddingHorizontal: 16,
         minHeight: 52,
         ...(!isLast
@@ -56,57 +55,79 @@ function SettingsRow({
           : {}),
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-        {iconName ? (
-          <View
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+          {iconName ? (
+            <View
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 12,
+                backgroundColor: destructive
+                  ? theme.colors.statusErrorBg
+                  : theme.colors.iconBackground,
+              }}
+            >
+              <Ionicons
+                name={iconName}
+                size={15}
+                color={
+                  destructive
+                    ? theme.colors.actionDestructive
+                    : theme.colors.actionPrimary
+                }
+              />
+            </View>
+          ) : null}
+          <Text
             style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: 12,
-              backgroundColor: destructive
-                ? theme.colors.statusErrorBg
-                : theme.colors.iconBackground,
+              fontSize: 15,
+              fontWeight: "500",
+              paddingVertical: 12,
+              color: destructive
+                ? theme.colors.actionDestructive
+                : theme.colors.textPrimary,
             }}
           >
+            {label}
+          </Text>
+        </View>
+        {rightElement ??
+          (value ? (
+            <Text style={{ fontSize: 14, color: theme.colors.textTertiary }}>
+              {value}
+            </Text>
+          ) : onPress ? (
             <Ionicons
-              name={iconName}
-              size={15}
-              color={
-                destructive
-                  ? theme.colors.actionDestructive
-                  : theme.colors.actionPrimary
-              }
+              name="chevron-forward"
+              size={18}
+              color={theme.colors.textTertiary}
             />
-          </View>
-        ) : null}
+          ) : null)}
+      </View>
+      {valueBelowLabel ? (
         <Text
           style={{
-            fontSize: 15,
-            fontWeight: "500",
-            paddingVertical: 12,
-            color: destructive
-              ? theme.colors.actionDestructive
-              : theme.colors.textPrimary,
+            fontSize: 13,
+            color: theme.colors.textTertiary,
+            paddingBottom: 12,
+            marginTop: -4,
           }}
+          numberOfLines={1}
+          ellipsizeMode="tail"
         >
-          {label}
+          {valueBelowLabel}
         </Text>
-      </View>
-      {rightElement ??
-        (value ? (
-          <Text style={{ fontSize: 14, color: theme.colors.textTertiary }}>
-            {value}
-          </Text>
-        ) : onPress ? (
-          <Ionicons
-            name="chevron-forward"
-            size={18}
-            color={theme.colors.textTertiary}
-          />
-        ) : null)}
+      ) : null}
     </View>
   );
 
@@ -229,9 +250,6 @@ export default function SettingsScreen(): React.JSX.Element {
         <View
           style={{
             marginTop: 16,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
           }}
         >
           <Text
@@ -241,6 +259,7 @@ export default function SettingsScreen(): React.JSX.Element {
               textTransform: "uppercase",
               color: theme.colors.textTertiary,
               letterSpacing: 1,
+              marginBottom: 6,
             }}
           >
             Connected to
@@ -254,6 +273,7 @@ export default function SettingsScreen(): React.JSX.Element {
               backgroundColor: theme.colors.accentCyanBg,
               borderWidth: 1,
               borderColor: theme.colors.borderGlass,
+              alignSelf: "flex-start",
             }}
           >
             <Text
@@ -262,6 +282,8 @@ export default function SettingsScreen(): React.JSX.Element {
                 fontWeight: "600",
                 color: theme.colors.accentCyan,
               }}
+              numberOfLines={1}
+              ellipsizeMode="middle"
             >
               {serverUrl || "oneuptime.com"}
             </Text>
@@ -352,7 +374,7 @@ export default function SettingsScreen(): React.JSX.Element {
           <SettingsRow
             label="Server URL"
             iconName="globe-outline"
-            value={serverUrl || "oneuptime.com"}
+            valueBelowLabel={serverUrl || "oneuptime.com"}
             isLast
           />
         </View>
