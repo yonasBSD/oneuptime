@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   SectionList,
+  ScrollView,
   RefreshControl,
   Text,
   SectionListRenderItemInfo,
@@ -312,19 +313,21 @@ export default function IncidentsScreen(): React.JSX.Element {
       <View
         style={{ flex: 1, backgroundColor: theme.colors.backgroundPrimary }}
       >
-        <SegmentedControl
-          segments={[
-            { key: "incidents" as const, label: "Incidents" },
-            { key: "episodes" as const, label: "Episodes" },
-          ]}
-          selected={segment}
-          onSelect={setSegment}
-        />
-        <View style={{ padding: 16 }}>
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-        </View>
+        <ScrollView contentInsetAdjustmentBehavior="automatic">
+          <SegmentedControl
+            segments={[
+              { key: "incidents" as const, label: "Incidents" },
+              { key: "episodes" as const, label: "Episodes" },
+            ]}
+            selected={segment}
+            onSelect={setSegment}
+          />
+          <View style={{ padding: 16 }}>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -342,43 +345,48 @@ export default function IncidentsScreen(): React.JSX.Element {
       <View
         style={{ flex: 1, backgroundColor: theme.colors.backgroundPrimary }}
       >
-        <SegmentedControl
-          segments={[
-            { key: "incidents" as const, label: "Incidents" },
-            { key: "episodes" as const, label: "Episodes" },
-          ]}
-          selected={segment}
-          onSelect={setSegment}
-        />
-        <EmptyState
-          title="Something went wrong"
-          subtitle={
-            segment === "incidents"
-              ? "Failed to load incidents. Pull to refresh or try again."
-              : "Failed to load incident episodes. Pull to refresh or try again."
-          }
-          icon="incidents"
-          actionLabel="Retry"
-          onAction={retryFn}
-        />
+        <ScrollView contentInsetAdjustmentBehavior="automatic">
+          <SegmentedControl
+            segments={[
+              { key: "incidents" as const, label: "Incidents" },
+              { key: "episodes" as const, label: "Episodes" },
+            ]}
+            selected={segment}
+            onSelect={setSegment}
+          />
+          <EmptyState
+            title="Something went wrong"
+            subtitle={
+              segment === "incidents"
+                ? "Failed to load incidents. Pull to refresh or try again."
+                : "Failed to load incident episodes. Pull to refresh or try again."
+            }
+            icon="incidents"
+            actionLabel="Retry"
+            onAction={retryFn}
+          />
+        </ScrollView>
       </View>
     );
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.backgroundPrimary }}>
-      <SegmentedControl
-        segments={[
-          { key: "incidents" as const, label: "Incidents" },
-          { key: "episodes" as const, label: "Episodes" },
-        ]}
-        selected={segment}
-        onSelect={setSegment}
-      />
       {segment === "incidents" ? (
         <SectionList
           sections={incidentSections}
           style={{ flex: 1 }}
+          contentInsetAdjustmentBehavior="automatic"
+          ListHeaderComponent={
+            <SegmentedControl
+              segments={[
+                { key: "incidents" as const, label: "Incidents" },
+                { key: "episodes" as const, label: "Episodes" },
+              ]}
+              selected={segment}
+              onSelect={setSegment}
+            />
+          }
           keyExtractor={(wrapped: ProjectIncidentItem) => {
             return `${wrapped.projectId}-${wrapped.item._id}`;
           }}
@@ -457,6 +465,17 @@ export default function IncidentsScreen(): React.JSX.Element {
         <SectionList
           sections={episodeSections}
           style={{ flex: 1 }}
+          contentInsetAdjustmentBehavior="automatic"
+          ListHeaderComponent={
+            <SegmentedControl
+              segments={[
+                { key: "incidents" as const, label: "Incidents" },
+                { key: "episodes" as const, label: "Episodes" },
+              ]}
+              selected={segment}
+              onSelect={setSegment}
+            />
+          }
           keyExtractor={(wrapped: ProjectIncidentEpisodeItem) => {
             return `${wrapped.projectId}-${wrapped.item._id}`;
           }}

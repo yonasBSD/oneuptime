@@ -22,6 +22,7 @@ const APP_VERSION: string = "1.0.0";
 interface SettingsRowProps {
   label: string;
   value?: string;
+  valueBelowLabel?: string;
   onPress?: () => void;
   rightElement?: React.ReactNode;
   destructive?: boolean;
@@ -32,6 +33,7 @@ interface SettingsRowProps {
 function SettingsRow({
   label,
   value,
+  valueBelowLabel,
   onPress,
   rightElement,
   destructive,
@@ -43,11 +45,9 @@ function SettingsRow({
   const content: React.JSX.Element = (
     <View
       style={{
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
         paddingHorizontal: 16,
         minHeight: 52,
+        justifyContent: "center",
         ...(!isLast
           ? {
               borderBottomWidth: 1,
@@ -56,57 +56,79 @@ function SettingsRow({
           : {}),
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-        {iconName ? (
-          <View
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+          {iconName ? (
+            <View
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 12,
+                backgroundColor: destructive
+                  ? theme.colors.statusErrorBg
+                  : theme.colors.iconBackground,
+              }}
+            >
+              <Ionicons
+                name={iconName}
+                size={15}
+                color={
+                  destructive
+                    ? theme.colors.actionDestructive
+                    : theme.colors.actionPrimary
+                }
+              />
+            </View>
+          ) : null}
+          <Text
             style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: 12,
-              backgroundColor: destructive
-                ? theme.colors.statusErrorBg
-                : theme.colors.iconBackground,
+              fontSize: 15,
+              fontWeight: "500",
+              paddingVertical: 12,
+              color: destructive
+                ? theme.colors.actionDestructive
+                : theme.colors.textPrimary,
             }}
           >
+            {label}
+          </Text>
+        </View>
+        {rightElement ??
+          (value ? (
+            <Text style={{ fontSize: 14, color: theme.colors.textTertiary }}>
+              {value}
+            </Text>
+          ) : onPress ? (
             <Ionicons
-              name={iconName}
-              size={15}
-              color={
-                destructive
-                  ? theme.colors.actionDestructive
-                  : theme.colors.actionPrimary
-              }
+              name="chevron-forward"
+              size={18}
+              color={theme.colors.textTertiary}
             />
-          </View>
-        ) : null}
+          ) : null)}
+      </View>
+      {valueBelowLabel ? (
         <Text
           style={{
-            fontSize: 15,
-            fontWeight: "500",
-            paddingVertical: 12,
-            color: destructive
-              ? theme.colors.actionDestructive
-              : theme.colors.textPrimary,
+            fontSize: 13,
+            color: theme.colors.textTertiary,
+            paddingBottom: 12,
+            marginTop: -4,
           }}
+          numberOfLines={1}
+          ellipsizeMode="tail"
         >
-          {label}
+          {valueBelowLabel}
         </Text>
-      </View>
-      {rightElement ??
-        (value ? (
-          <Text style={{ fontSize: 14, color: theme.colors.textTertiary }}>
-            {value}
-          </Text>
-        ) : onPress ? (
-          <Ionicons
-            name="chevron-forward"
-            size={18}
-            color={theme.colors.textTertiary}
-          />
-        ) : null)}
+      ) : null}
     </View>
   );
 
@@ -150,6 +172,7 @@ export default function SettingsScreen(): React.JSX.Element {
 
   return (
     <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
       style={{ backgroundColor: theme.colors.backgroundPrimary }}
       contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
     >
@@ -229,43 +252,70 @@ export default function SettingsScreen(): React.JSX.Element {
         <View
           style={{
             marginTop: 16,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
+            borderRadius: 10,
+            backgroundColor: theme.colors.backgroundTertiary,
+            borderWidth: 1,
+            borderColor: theme.colors.borderSubtle,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
           }}
         >
-          <Text
-            style={{
-              fontSize: 11,
-              fontWeight: "600",
-              textTransform: "uppercase",
-              color: theme.colors.textTertiary,
-              letterSpacing: 1,
-            }}
-          >
-            Connected to
-          </Text>
-
           <View
             style={{
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-              borderRadius: 8,
-              backgroundColor: theme.colors.accentCyanBg,
-              borderWidth: 1,
-              borderColor: theme.colors.borderGlass,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
             }}
           >
             <Text
               style={{
                 fontSize: 11,
                 fontWeight: "600",
-                color: theme.colors.accentCyan,
+                textTransform: "uppercase",
+                color: theme.colors.textTertiary,
+                letterSpacing: 1,
               }}
             >
-              {serverUrl || "oneuptime.com"}
+              Connected to
             </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              <View
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: theme.colors.statusSuccess,
+                  marginRight: 5,
+                }}
+              />
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: "600",
+                  color: theme.colors.statusSuccess,
+                }}
+              >
+                Online
+              </Text>
+            </View>
           </View>
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "500",
+              color: theme.colors.textSecondary,
+              marginTop: 6,
+            }}
+            numberOfLines={1}
+            ellipsizeMode="middle"
+          >
+            {serverUrl || "oneuptime.com"}
+          </Text>
         </View>
       </View>
 
@@ -347,14 +397,98 @@ export default function SettingsScreen(): React.JSX.Element {
             backgroundColor: theme.colors.backgroundElevated,
             borderWidth: 1,
             borderColor: theme.colors.borderGlass,
+            padding: 16,
           }}
         >
-          <SettingsRow
-            label="Server URL"
-            iconName="globe-outline"
-            value={serverUrl || "oneuptime.com"}
-            isLast
-          />
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            <View
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 10,
+                backgroundColor: theme.colors.iconBackground,
+              }}
+            >
+              <Ionicons
+                name="globe-outline"
+                size={15}
+                color={theme.colors.actionPrimary}
+              />
+            </View>
+            <Text
+              style={{
+                fontSize: 15,
+                fontWeight: "500",
+                color: theme.colors.textPrimary,
+                flex: 1,
+              }}
+            >
+              Server URL
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 9999,
+                backgroundColor: theme.colors.statusSuccessBg,
+              }}
+            >
+              <View
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: theme.colors.statusSuccess,
+                  marginRight: 5,
+                }}
+              />
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontWeight: "600",
+                  color: theme.colors.statusSuccess,
+                  letterSpacing: 0.2,
+                }}
+              >
+                Connected
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={{
+              borderRadius: 10,
+              backgroundColor: theme.colors.backgroundTertiary,
+              borderWidth: 1,
+              borderColor: theme.colors.borderSubtle,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "500",
+                color: theme.colors.textSecondary,
+                fontFamily: undefined,
+              }}
+              numberOfLines={1}
+              ellipsizeMode="middle"
+            >
+              {serverUrl || "oneuptime.com"}
+            </Text>
+          </View>
         </View>
       </View>
 
