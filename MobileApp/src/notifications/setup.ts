@@ -91,7 +91,14 @@ export async function requestPermissionsAndGetToken(): Promise<string | null> {
   let finalStatus: PermissionStatus = existingStatus;
 
   if (existingStatus !== "granted") {
-    const { status } = await Notifications.requestPermissionsAsync();
+    const { status } = await Notifications.requestPermissionsAsync({
+      ios: {
+        allowAlert: true,
+        allowBadge: true,
+        allowSound: true,
+        allowCriticalAlerts: true,
+      },
+    });
     finalStatus = status;
   }
 
@@ -115,9 +122,17 @@ export async function requestPermissionsAndGetToken(): Promise<string | null> {
   }
 
   try {
+    logger.info(
+      `[PushNotifications] Requesting Expo push token with projectId: ${projectId}`,
+    );
+
     const tokenData: ExpoPushToken = await Notifications.getExpoPushTokenAsync({
       projectId,
     });
+
+    logger.info(
+      `[PushNotifications] Successfully obtained push token: ${tokenData.data}`,
+    );
 
     return tokenData.data;
   } catch (error: unknown) {
