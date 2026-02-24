@@ -250,44 +250,70 @@ export default function SettingsScreen(): React.JSX.Element {
         <View
           style={{
             marginTop: 16,
+            borderRadius: 10,
+            backgroundColor: theme.colors.backgroundTertiary,
+            borderWidth: 1,
+            borderColor: theme.colors.borderSubtle,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
           }}
         >
-          <Text
-            style={{
-              fontSize: 11,
-              fontWeight: "600",
-              textTransform: "uppercase",
-              color: theme.colors.textTertiary,
-              letterSpacing: 1,
-              marginBottom: 6,
-            }}
-          >
-            Connected to
-          </Text>
-
           <View
             style={{
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-              borderRadius: 8,
-              backgroundColor: theme.colors.accentCyanBg,
-              borderWidth: 1,
-              borderColor: theme.colors.borderGlass,
-              alignSelf: "flex-start",
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
             }}
           >
             <Text
               style={{
                 fontSize: 11,
                 fontWeight: "600",
-                color: theme.colors.accentCyan,
+                textTransform: "uppercase",
+                color: theme.colors.textTertiary,
+                letterSpacing: 1,
               }}
-              numberOfLines={1}
-              ellipsizeMode="middle"
             >
-              {serverUrl || "oneuptime.com"}
+              Connected to
             </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              <View
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: theme.colors.statusSuccess,
+                  marginRight: 5,
+                }}
+              />
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: "600",
+                  color: theme.colors.statusSuccess,
+                }}
+              >
+                Online
+              </Text>
+            </View>
           </View>
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "500",
+              color: theme.colors.textSecondary,
+              marginTop: 6,
+            }}
+            numberOfLines={1}
+            ellipsizeMode="middle"
+          >
+            {serverUrl || "oneuptime.com"}
+          </Text>
         </View>
       </View>
 
@@ -369,14 +395,98 @@ export default function SettingsScreen(): React.JSX.Element {
             backgroundColor: theme.colors.backgroundElevated,
             borderWidth: 1,
             borderColor: theme.colors.borderGlass,
+            padding: 16,
           }}
         >
-          <SettingsRow
-            label="Server URL"
-            iconName="globe-outline"
-            valueBelowLabel={serverUrl || "oneuptime.com"}
-            isLast
-          />
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
+            <View
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 10,
+                backgroundColor: theme.colors.iconBackground,
+              }}
+            >
+              <Ionicons
+                name="globe-outline"
+                size={15}
+                color={theme.colors.actionPrimary}
+              />
+            </View>
+            <Text
+              style={{
+                fontSize: 15,
+                fontWeight: "500",
+                color: theme.colors.textPrimary,
+                flex: 1,
+              }}
+            >
+              Server URL
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 9999,
+                backgroundColor: theme.colors.statusSuccessBg,
+              }}
+            >
+              <View
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: theme.colors.statusSuccess,
+                  marginRight: 5,
+                }}
+              />
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontWeight: "600",
+                  color: theme.colors.statusSuccess,
+                  letterSpacing: 0.2,
+                }}
+              >
+                Connected
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={{
+              borderRadius: 10,
+              backgroundColor: theme.colors.backgroundTertiary,
+              borderWidth: 1,
+              borderColor: theme.colors.borderSubtle,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "500",
+                color: theme.colors.textSecondary,
+                fontFamily: undefined,
+              }}
+              numberOfLines={1}
+              ellipsizeMode="middle"
+            >
+              {serverUrl || "oneuptime.com"}
+            </Text>
+          </View>
         </View>
       </View>
 
