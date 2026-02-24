@@ -43,7 +43,6 @@ x-common-variables: &common-variables
     SERVER_WORKER_HOSTNAME: worker
     SERVER_HOME_HOSTNAME: home
     SERVER_WORKFLOW_HOSTNAME: workflow
-    SERVER_API_REFERENCE_HOSTNAME: api-reference
     SERVER_DOCS_HOSTNAME: docs
     SERVER_SERVER_MONITOR_INGEST_HOSTNAME: server-monitor-ingest
     SERVER_MCP_HOSTNAME: mcp
@@ -62,7 +61,6 @@ x-common-variables: &common-variables
     ISOLATED_VM_PORT: ${ISOLATED_VM_PORT}
     WORKER_PORT: ${WORKER_PORT}
     WORKFLOW_PORT: ${WORKFLOW_PORT}
-    API_REFERENCE_PORT: ${API_REFERENCE_PORT}
     DOCS_PORT: ${DOCS_PORT}
     SERVER_MONITOR_INGEST_PORT: ${SERVER_MONITOR_INGEST_PORT}
     MCP_PORT: ${MCP_PORT}
@@ -366,18 +364,6 @@ services:
         environment: 
             <<: *common-runtime-variables
             PORT: ${DOCS_PORT}
-        logging:
-            driver: "local"
-            options:
-                max-size: "1000m"
-
-    api-reference:
-        networks:
-          - oneuptime
-        restart: always
-        environment: 
-            <<: *common-runtime-variables
-            PORT: ${API_REFERENCE_PORT}
         logging:
             driver: "local"
             options:

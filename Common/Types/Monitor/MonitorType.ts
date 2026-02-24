@@ -32,6 +32,9 @@ enum MonitorType {
 
   // Domain registration monitoring
   Domain = "Domain",
+
+  // External status page monitoring
+  ExternalStatusPage = "External Status Page",
 }
 
 export default MonitorType;
@@ -62,6 +65,7 @@ export class MonitorTypeHelper {
           MonitorType.DNS,
           MonitorType.SSLCertificate,
           MonitorType.Domain,
+          MonitorType.ExternalStatusPage,
         ],
       },
       {
@@ -250,6 +254,13 @@ export class MonitorTypeHelper {
           "This monitor type lets you monitor domain registration health — expiry dates, registrar info, nameserver delegation, and WHOIS status.",
         icon: IconProp.Globe,
       },
+      {
+        monitorType: MonitorType.ExternalStatusPage,
+        title: "External Status Page",
+        description:
+          "This monitor type lets you monitor third-party status pages (e.g. AWS, GCP, Azure, GitHub, Cloudflare) and alert when their services degrade.",
+        icon: IconProp.ExternalLink,
+      },
     ];
 
     return monitorTypeProps;
@@ -297,7 +308,8 @@ export class MonitorTypeHelper {
       monitorType === MonitorType.CustomJavaScriptCode ||
       monitorType === MonitorType.SNMP ||
       monitorType === MonitorType.DNS ||
-      monitorType === MonitorType.Domain;
+      monitorType === MonitorType.Domain ||
+      monitorType === MonitorType.ExternalStatusPage;
     return isProbeableMonitor;
   }
 
@@ -321,6 +333,7 @@ export class MonitorTypeHelper {
       MonitorType.SNMP,
       MonitorType.DNS,
       MonitorType.Domain,
+      MonitorType.ExternalStatusPage,
     ];
   }
 
@@ -355,7 +368,8 @@ export class MonitorTypeHelper {
       monitorType === MonitorType.CustomJavaScriptCode ||
       monitorType === MonitorType.SNMP ||
       monitorType === MonitorType.DNS ||
-      monitorType === MonitorType.Domain
+      monitorType === MonitorType.Domain ||
+      monitorType === MonitorType.ExternalStatusPage
     ) {
       return true;
     }

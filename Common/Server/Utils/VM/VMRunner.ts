@@ -143,62 +143,100 @@ export default class VMRunner {
             }
           }
 
-          let response: AxiosResponse;
-
-          switch (method) {
-            case "get":
-              response = await axios.get(url, config);
-              break;
-            case "head":
-              response = await axios.head(url, config);
-              break;
-            case "options":
-              response = await axios.options(url, config);
-              break;
-            case "post":
-              response = await axios.post(url, body, config);
-              break;
-            case "put":
-              response = await axios.put(url, body, config);
-              break;
-            case "patch":
-              response = await axios.patch(url, body, config);
-              break;
-            case "delete":
-              response = await axios.delete(url, config);
-              break;
-            case "request":
-              response = await axios.request(
-                config as Parameters<typeof axios.request>[0],
-              );
-              break;
-            default:
-              throw new Error(`Unsupported HTTP method: ${method}`);
-          }
-
-          /*
-           * Convert AxiosHeaders to a plain object before serializing.
-           * JSON.stringify calls AxiosHeaders.toJSON(key) with a truthy key,
-           * which makes it join array headers (like set-cookie) with commas.
-           * This produces invalid Cookie headers when user code forwards them.
+          /**
+           * Helper: convert AxiosHeaders (or any header-like object) to a
+           * plain record so it can be safely JSON-serialised.
            */
-          const plainHeaders: Record<string, unknown> = {};
-
-          if (response.headers) {
-            for (const key of Object.keys(
-              response.headers as Record<string, unknown>,
-            )) {
-              plainHeaders[key] = (response.headers as Record<string, unknown>)[
-                key
-              ];
+          const toPlainHeaders: (
+            headers: unknown,
+          ) => Record<string, unknown> = (
+            headers: unknown,
+          ): Record<string, unknown> => {
+            const plain: Record<string, unknown> = {};
+            if (headers) {
+              for (const hKey of Object.keys(
+                headers as Record<string, unknown>,
+              )) {
+                plain[hKey] = (headers as Record<string, unknown>)[hKey];
+              }
             }
-          }
+            return plain;
+          };
 
-          return JSON.stringify({
-            status: response.status,
-            headers: plainHeaders,
-            data: response.data,
-          });
+          try {
+            let response: AxiosResponse;
+
+            switch (method) {
+              case "get":
+                response = await axios.get(url, config);
+                break;
+              case "head":
+                response = await axios.head(url, config);
+                break;
+              case "options":
+                response = await axios.options(url, config);
+                break;
+              case "post":
+                response = await axios.post(url, body, config);
+                break;
+              case "put":
+                response = await axios.put(url, body, config);
+                break;
+              case "patch":
+                response = await axios.patch(url, body, config);
+                break;
+              case "delete":
+                response = await axios.delete(url, config);
+                break;
+              case "request":
+                response = await axios.request(
+                  config as Parameters<typeof axios.request>[0],
+                );
+                break;
+              default:
+                throw new Error(`Unsupported HTTP method: ${method}`);
+            }
+
+            /*
+             * Convert AxiosHeaders to a plain object before serializing.
+             * JSON.stringify calls AxiosHeaders.toJSON(key) with a truthy key,
+             * which makes it join array headers (like set-cookie) with commas.
+             * This produces invalid Cookie headers when user code forwards them.
+             */
+            return JSON.stringify({
+              status: response.status,
+              headers: toPlainHeaders(response.headers),
+              data: response.data,
+            });
+          } catch (err: unknown) {
+            /*
+             * If this is an axios error with a response (4xx, 5xx, etc.),
+             * return the error details as JSON so the sandbox-side axios
+             * wrapper can reconstruct error.response for user code.
+             */
+            const axiosErr: {
+              isAxiosError?: boolean;
+              response?: AxiosResponse<any, any, Record<string, unknown>>;
+              message?: string;
+            } = err as {
+              isAxiosError?: boolean;
+              response?: AxiosResponse;
+              message?: string;
+            };
+
+            if (axiosErr.isAxiosError && axiosErr.response) {
+              return JSON.stringify({
+                __isAxiosError: true,
+                message: axiosErr.message || "Request failed",
+                status: axiosErr.response.status,
+                statusText: axiosErr.response.statusText,
+                headers: toPlainHeaders(axiosErr.response.headers),
+                data: axiosErr.response.data,
+              });
+            }
+
+            throw err;
+          }
         },
       );
 
@@ -236,6 +274,23 @@ export default class VMRunner {
           }
         }
 
+        function _parseAxiosResult(r) {
+          const parsed = JSON.parse(r);
+          if (parsed && parsed.__isAxiosError) {
+            const err = new Error(parsed.message);
+            err.response = {
+              status: parsed.status,
+              statusText: parsed.statusText,
+              headers: parsed.headers,
+              data: parsed.data,
+            };
+            err.isAxiosError = true;
+            err.status = parsed.status;
+            throw err;
+          }
+          return parsed;
+        }
+
         function _makeAxiosInstance(defaults) {
           function mergeConfig(overrides) {
             if (!defaults && !overrides) return undefined;
@@ -252,7 +307,7 @@ export default class VMRunner {
             const merged = mergeConfig(config);
             if (merged) _assertNoFunctions(merged, 'config');
             const r = await _axiosRef.applySyncPromise(undefined, ['request', '', merged ? JSON.stringify(merged) : undefined]);
-            return JSON.parse(r);
+            return _parseAxiosResult(r);
           }
 
           // Make instance callable: axios(config) or axios(url, config)
@@ -268,46 +323,46 @@ export default class VMRunner {
             const merged = mergeConfig(config);
             if (merged) _assertNoFunctions(merged, 'config');
             const r = await _axiosRef.applySyncPromise(undefined, ['get', url, merged ? JSON.stringify(merged) : undefined]);
-            return JSON.parse(r);
+            return _parseAxiosResult(r);
           };
           instance.head = async (url, config) => {
             const merged = mergeConfig(config);
             if (merged) _assertNoFunctions(merged, 'config');
             const r = await _axiosRef.applySyncPromise(undefined, ['head', url, merged ? JSON.stringify(merged) : undefined]);
-            return JSON.parse(r);
+            return _parseAxiosResult(r);
           };
           instance.options = async (url, config) => {
             const merged = mergeConfig(config);
             if (merged) _assertNoFunctions(merged, 'config');
             const r = await _axiosRef.applySyncPromise(undefined, ['options', url, merged ? JSON.stringify(merged) : undefined]);
-            return JSON.parse(r);
+            return _parseAxiosResult(r);
           };
           instance.post = async (url, data, config) => {
             const merged = mergeConfig(config);
             if (data) _assertNoFunctions(data, 'data');
             if (merged) _assertNoFunctions(merged, 'config');
             const r = await _axiosRef.applySyncPromise(undefined, ['post', url, data ? JSON.stringify(data) : undefined, merged ? JSON.stringify(merged) : undefined]);
-            return JSON.parse(r);
+            return _parseAxiosResult(r);
           };
           instance.put = async (url, data, config) => {
             const merged = mergeConfig(config);
             if (data) _assertNoFunctions(data, 'data');
             if (merged) _assertNoFunctions(merged, 'config');
             const r = await _axiosRef.applySyncPromise(undefined, ['put', url, data ? JSON.stringify(data) : undefined, merged ? JSON.stringify(merged) : undefined]);
-            return JSON.parse(r);
+            return _parseAxiosResult(r);
           };
           instance.patch = async (url, data, config) => {
             const merged = mergeConfig(config);
             if (data) _assertNoFunctions(data, 'data');
             if (merged) _assertNoFunctions(merged, 'config');
             const r = await _axiosRef.applySyncPromise(undefined, ['patch', url, data ? JSON.stringify(data) : undefined, merged ? JSON.stringify(merged) : undefined]);
-            return JSON.parse(r);
+            return _parseAxiosResult(r);
           };
           instance.delete = async (url, config) => {
             const merged = mergeConfig(config);
             if (merged) _assertNoFunctions(merged, 'config');
             const r = await _axiosRef.applySyncPromise(undefined, ['delete', url, merged ? JSON.stringify(merged) : undefined]);
-            return JSON.parse(r);
+            return _parseAxiosResult(r);
           };
           instance.create = (instanceDefaults) => {
             if (instanceDefaults) _assertNoFunctions(instanceDefaults, 'defaults');
@@ -321,7 +376,7 @@ export default class VMRunner {
         const axios = _makeAxiosInstance(null);
       `);
 
-      // crypto (createHash, createHmac, randomBytes) - bridged via applySync
+      // crypto (createHash, createHmac, randomBytes, randomUUID, randomInt) - bridged via applySync
       const cryptoRef: ivm.Reference<
         (op: string, ...args: string[]) => string
       > = new ivm.Reference((op: string, ...args: string[]): string => {
@@ -343,6 +398,13 @@ export default class VMRunner {
           case "randomBytes": {
             const [size] = args;
             return crypto.randomBytes(parseInt(size!)).toString("hex");
+          }
+          case "randomUUID": {
+            return crypto.randomUUID();
+          }
+          case "randomInt": {
+            const [min, max] = args;
+            return String(crypto.randomInt(parseInt(min!), parseInt(max!)));
           }
           default:
             throw new Error(`Unsupported crypto operation: ${op}`);
@@ -366,6 +428,13 @@ export default class VMRunner {
           randomBytes: (size) => ({
             toString(enc) { return _cryptoRef.applySync(undefined, ['randomBytes', String(size)]); }
           }),
+          randomUUID: () => {
+            return _cryptoRef.applySync(undefined, ['randomUUID']);
+          },
+          randomInt: (minOrMax, max) => {
+            if (max === undefined) { max = minOrMax; minOrMax = 0; }
+            return Number(_cryptoRef.applySync(undefined, ['randomInt', String(minOrMax), String(max)]));
+          },
         };
       `);
 

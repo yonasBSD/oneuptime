@@ -448,6 +448,33 @@ export default class MonitorCriteriaInstance extends DatabaseProperty {
       return monitorCriteriaInstance;
     }
 
+    if (arg.monitorType === MonitorType.ExternalStatusPage) {
+      const monitorCriteriaInstance: MonitorCriteriaInstance =
+        new MonitorCriteriaInstance();
+
+      monitorCriteriaInstance.data = {
+        id: ObjectID.generate().toString(),
+        monitorStatusId: arg.monitorStatusId,
+        filterCondition: FilterCondition.All,
+        filters: [
+          {
+            checkOn: CheckOn.ExternalStatusPageIsOnline,
+            filterType: FilterType.True,
+            value: undefined,
+          },
+        ],
+        incidents: [],
+        alerts: [],
+        createAlerts: false,
+        changeMonitorStatus: true,
+        createIncidents: false,
+        name: `Check if ${arg.monitorName} is online`,
+        description: `This criteria checks if the ${arg.monitorName} external status page is reachable`,
+      };
+
+      return monitorCriteriaInstance;
+    }
+
     return null;
   }
 
@@ -626,6 +653,46 @@ export default class MonitorCriteriaInstance extends DatabaseProperty {
         ],
         name: `Check if ${arg.monitorName} domain is expired`,
         description: `This criteria checks if the ${arg.monitorName} domain registration has expired`,
+      };
+    }
+
+    if (arg.monitorType === MonitorType.ExternalStatusPage) {
+      monitorCriteriaInstance.data = {
+        id: ObjectID.generate().toString(),
+        monitorStatusId: arg.monitorStatusId,
+        filterCondition: FilterCondition.Any,
+        filters: [
+          {
+            checkOn: CheckOn.ExternalStatusPageIsOnline,
+            filterType: FilterType.False,
+            value: undefined,
+          },
+        ],
+        incidents: [
+          {
+            title: `${arg.monitorName} is offline`,
+            description: `${arg.monitorName} external status page is currently unreachable.`,
+            incidentSeverityId: arg.incidentSeverityId,
+            autoResolveIncident: true,
+            id: ObjectID.generate().toString(),
+            onCallPolicyIds: [],
+          },
+        ],
+        changeMonitorStatus: true,
+        createIncidents: true,
+        createAlerts: false,
+        alerts: [
+          {
+            title: `${arg.monitorName} is offline`,
+            description: `${arg.monitorName} external status page is currently unreachable.`,
+            alertSeverityId: arg.alertSeverityId,
+            autoResolveAlert: true,
+            id: ObjectID.generate().toString(),
+            onCallPolicyIds: [],
+          },
+        ],
+        name: `Check if ${arg.monitorName} is offline`,
+        description: `This criteria checks if the ${arg.monitorName} external status page is unreachable`,
       };
     }
 

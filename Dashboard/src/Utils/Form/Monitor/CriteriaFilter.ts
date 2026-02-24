@@ -307,6 +307,18 @@ export default class CriteriaFilterUtil {
       });
     }
 
+    if (monitorType === MonitorType.ExternalStatusPage) {
+      options = options.filter((i: DropdownOption) => {
+        return (
+          i.value === CheckOn.ExternalStatusPageIsOnline ||
+          i.value === CheckOn.ExternalStatusPageOverallStatus ||
+          i.value === CheckOn.ExternalStatusPageComponentStatus ||
+          i.value === CheckOn.ExternalStatusPageActiveIncidents ||
+          i.value === CheckOn.ExternalStatusPageResponseTime
+        );
+      });
+    }
+
     return options;
   }
 
@@ -616,6 +628,42 @@ export default class CriteriaFilterUtil {
       });
     }
 
+    if (checkOn === CheckOn.ExternalStatusPageIsOnline) {
+      options = options.filter((i: DropdownOption) => {
+        return i.value === FilterType.True || i.value === FilterType.False;
+      });
+    }
+
+    if (
+      checkOn === CheckOn.ExternalStatusPageResponseTime ||
+      checkOn === CheckOn.ExternalStatusPageActiveIncidents
+    ) {
+      options = options.filter((i: DropdownOption) => {
+        return (
+          i.value === FilterType.GreaterThan ||
+          i.value === FilterType.LessThan ||
+          i.value === FilterType.LessThanOrEqualTo ||
+          i.value === FilterType.GreaterThanOrEqualTo
+        );
+      });
+    }
+
+    if (
+      checkOn === CheckOn.ExternalStatusPageOverallStatus ||
+      checkOn === CheckOn.ExternalStatusPageComponentStatus
+    ) {
+      options = options.filter((i: DropdownOption) => {
+        return (
+          i.value === FilterType.Contains ||
+          i.value === FilterType.NotContains ||
+          i.value === FilterType.EqualTo ||
+          i.value === FilterType.NotEqualTo ||
+          i.value === FilterType.StartsWith ||
+          i.value === FilterType.EndsWith
+        );
+      });
+    }
+
     return options;
   }
 
@@ -769,6 +817,22 @@ export default class CriteriaFilterUtil {
 
     if (checkOn === CheckOn.DomainStatusCode) {
       return "clientTransferProhibited";
+    }
+
+    if (checkOn === CheckOn.ExternalStatusPageResponseTime) {
+      return "5000";
+    }
+
+    if (checkOn === CheckOn.ExternalStatusPageOverallStatus) {
+      return "operational";
+    }
+
+    if (checkOn === CheckOn.ExternalStatusPageComponentStatus) {
+      return "operational";
+    }
+
+    if (checkOn === CheckOn.ExternalStatusPageActiveIncidents) {
+      return "0";
     }
 
     return "";

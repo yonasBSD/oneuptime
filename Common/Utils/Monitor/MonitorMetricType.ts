@@ -86,7 +86,9 @@ class MonitorMetricTypeUtil {
       monitorType === MonitorType.IP ||
       monitorType === MonitorType.Port ||
       monitorType === MonitorType.SNMP ||
-      monitorType === MonitorType.DNS
+      monitorType === MonitorType.DNS ||
+      monitorType === MonitorType.Domain ||
+      monitorType === MonitorType.ExternalStatusPage
     ) {
       return [MonitorMetricType.IsOnline, MonitorMetricType.ResponseTime];
     }

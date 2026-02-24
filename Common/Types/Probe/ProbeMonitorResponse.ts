@@ -9,6 +9,7 @@ import SyntheticMonitorResponse from "../Monitor/SyntheticMonitors/SyntheticMoni
 import SnmpMonitorResponse from "../Monitor/SnmpMonitor/SnmpMonitorResponse";
 import DnsMonitorResponse from "../Monitor/DnsMonitor/DnsMonitorResponse";
 import DomainMonitorResponse from "../Monitor/DomainMonitor/DomainMonitorResponse";
+import ExternalStatusPageMonitorResponse from "../Monitor/ExternalStatusPageMonitor/ExternalStatusPageMonitorResponse";
 import MonitorEvaluationSummary from "../Monitor/MonitorEvaluationSummary";
 import ObjectID from "../ObjectID";
 import Port from "../Port";
@@ -34,6 +35,7 @@ export default interface ProbeMonitorResponse {
   snmpResponse?: SnmpMonitorResponse | undefined;
   dnsResponse?: DnsMonitorResponse | undefined;
   domainResponse?: DomainMonitorResponse | undefined;
+  externalStatusPageResponse?: ExternalStatusPageMonitorResponse | undefined;
   monitoredAt: Date;
   isTimeout?: boolean | undefined;
   ingestedAt?: Date | undefined;

@@ -324,6 +324,35 @@ const MonitorStepElement: FunctionComponent<ComponentProps> = (
         },
       },
     ];
+  } else if (props.monitorType === MonitorType.ExternalStatusPage) {
+    fields = [
+      {
+        key: "externalStatusPageMonitor",
+        title: "Status Page URL",
+        description: "The URL of the external status page being monitored.",
+        fieldType: FieldType.Element,
+        placeholder: "No data entered",
+        getElement: (item: MonitorStepType): ReactElement => {
+          const externalStatusPageMonitor: any = item.externalStatusPageMonitor;
+          return <p>{externalStatusPageMonitor?.statusPageUrl || "-"}</p>;
+        },
+      },
+      {
+        key: "externalStatusPageMonitor",
+        title: "Component Name Filter",
+        description: "If set, only this specific component will be monitored.",
+        fieldType: FieldType.Element,
+        placeholder: "All components",
+        getElement: (item: MonitorStepType): ReactElement => {
+          const externalStatusPageMonitor: any = item.externalStatusPageMonitor;
+          return (
+            <p>
+              {externalStatusPageMonitor?.componentName || "All components"}
+            </p>
+          );
+        },
+      },
+    ];
   } else if (props.monitorType === MonitorType.Logs) {
     logFields = [];
 
