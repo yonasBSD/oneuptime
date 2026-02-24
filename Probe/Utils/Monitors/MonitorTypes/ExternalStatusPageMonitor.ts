@@ -201,7 +201,7 @@ export default class ExternalStatusPageMonitorUtil {
     options: ExternalStatusPageQueryOptions,
   ): Promise<ExternalStatusPageMonitorResponse | null> {
     try {
-      let baseUrl: string = config.statusPageUrl.replace(/\/+$/, "");
+      const baseUrl: string = config.statusPageUrl.replace(/\/+$/, "");
 
       // Fetch status
       const statusUrl: string = `${baseUrl}/api/v2/status.json`;
@@ -358,9 +358,7 @@ export default class ExternalStatusPageMonitorUtil {
   ): ExternalStatusPageMonitorResponse {
     const channel: Record<string, unknown> =
       (rss["channel"] as Record<string, unknown>) || {};
-    const items: Array<Record<string, unknown>> = Array.isArray(
-      channel["item"],
-    )
+    const items: Array<Record<string, unknown>> = Array.isArray(channel["item"])
       ? (channel["item"] as Array<Record<string, unknown>>)
       : channel["item"]
         ? [channel["item"] as Record<string, unknown>]
@@ -406,9 +404,7 @@ export default class ExternalStatusPageMonitorUtil {
     feed: Record<string, unknown>,
     rawBody: string,
   ): ExternalStatusPageMonitorResponse {
-    const entries: Array<Record<string, unknown>> = Array.isArray(
-      feed["entry"],
-    )
+    const entries: Array<Record<string, unknown>> = Array.isArray(feed["entry"])
       ? (feed["entry"] as Array<Record<string, unknown>>)
       : feed["entry"]
         ? [feed["entry"] as Record<string, unknown>]
@@ -489,9 +485,7 @@ export default class ExternalStatusPageMonitorUtil {
         componentStatuses: [],
         activeIncidentCount: 0,
         responseTimeInMs: 0,
-        failureCause: isOnline
-          ? ""
-          : `HTTP status ${response.status}`,
+        failureCause: isOnline ? "" : `HTTP status ${response.status}`,
       };
     } catch (err) {
       return {

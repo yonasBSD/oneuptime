@@ -147,7 +147,9 @@ export default class VMRunner {
            * Helper: convert AxiosHeaders (or any header-like object) to a
            * plain record so it can be safely JSON-serialised.
            */
-          const toPlainHeaders = (
+          const toPlainHeaders: (
+            headers: unknown,
+          ) => Record<string, unknown> = (
             headers: unknown,
           ): Record<string, unknown> => {
             const plain: Record<string, unknown> = {};
@@ -212,7 +214,11 @@ export default class VMRunner {
              * return the error details as JSON so the sandbox-side axios
              * wrapper can reconstruct error.response for user code.
              */
-            const axiosErr = err as {
+            const axiosErr: {
+              isAxiosError?: boolean;
+              response?: AxiosResponse<any, any, Record<string, unknown>>;
+              message?: string;
+            } = err as {
               isAxiosError?: boolean;
               response?: AxiosResponse;
               message?: string;

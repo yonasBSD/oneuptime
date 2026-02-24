@@ -313,8 +313,7 @@ export default class MonitorTemplateUtil {
           responseTimeInMs: externalStatusPageResponse?.responseTimeInMs,
           failureCause: externalStatusPageResponse?.failureCause,
           overallStatus: externalStatusPageResponse?.overallStatus,
-          activeIncidentCount:
-            externalStatusPageResponse?.activeIncidentCount,
+          activeIncidentCount: externalStatusPageResponse?.activeIncidentCount,
         } as JSONObject;
 
         // Add component statuses

@@ -340,8 +340,7 @@ const MonitorStepElement: FunctionComponent<ComponentProps> = (
       {
         key: "externalStatusPageMonitor",
         title: "Component Name Filter",
-        description:
-          "If set, only this specific component will be monitored.",
+        description: "If set, only this specific component will be monitored.",
         fieldType: FieldType.Element,
         placeholder: "All components",
         getElement: (item: MonitorStepType): ReactElement => {

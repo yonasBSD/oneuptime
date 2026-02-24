@@ -3,7 +3,6 @@ import CompareCriteria from "./CompareCriteria";
 import {
   CheckOn,
   CriteriaFilter,
-  FilterType,
 } from "../../../../Types/Monitor/CriteriaFilter";
 import ExternalStatusPageMonitorResponse from "../../../../Types/Monitor/ExternalStatusPageMonitor/ExternalStatusPageMonitorResponse";
 import ProbeMonitorResponse from "../../../../Types/Probe/ProbeMonitorResponse";
@@ -55,9 +54,7 @@ export default class ExternalStatusPageMonitorCriteria {
     }
 
     // Check if external status page is online
-    if (
-      input.criteriaFilter.checkOn === CheckOn.ExternalStatusPageIsOnline
-    ) {
+    if (input.criteriaFilter.checkOn === CheckOn.ExternalStatusPageIsOnline) {
       const currentIsOnline: boolean | Array<boolean> =
         (overTimeValue as Array<boolean>) ||
         (input.dataToProcess as ProbeMonitorResponse).isOnline;
@@ -111,8 +108,7 @@ export default class ExternalStatusPageMonitorCriteria {
 
     // Check component status
     if (
-      input.criteriaFilter.checkOn ===
-      CheckOn.ExternalStatusPageComponentStatus
+      input.criteriaFilter.checkOn === CheckOn.ExternalStatusPageComponentStatus
     ) {
       if (
         !externalStatusPageResponse?.componentStatuses ||
@@ -139,8 +135,7 @@ export default class ExternalStatusPageMonitorCriteria {
 
     // Check active incidents count
     if (
-      input.criteriaFilter.checkOn ===
-      CheckOn.ExternalStatusPageActiveIncidents
+      input.criteriaFilter.checkOn === CheckOn.ExternalStatusPageActiveIncidents
     ) {
       threshold = CompareCriteria.convertToNumber(threshold);
 
