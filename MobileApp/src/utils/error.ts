@@ -18,7 +18,10 @@ export function getFriendlyErrorMessage(err: unknown): string {
 
     // Check for network / timeout errors first (no response from server)
     if (!axiosError.response) {
-      if (axiosError.code === "ECONNABORTED" || axiosError.code === "ETIMEDOUT") {
+      if (
+        axiosError.code === "ECONNABORTED" ||
+        axiosError.code === "ETIMEDOUT"
+      ) {
         return "Request timed out. Please check your connection and try again.";
       }
       if (axiosError.code === "ERR_NETWORK") {
@@ -29,8 +32,10 @@ export function getFriendlyErrorMessage(err: unknown): string {
 
     const { status, data } = axiosError.response;
 
-    // Extract message from response body — server sends { message: "..." }
-    // Also check "data" and "error" fields (matching Common/Types/API/HTTPErrorResponse.ts)
+    /*
+     * Extract message from response body — server sends { message: "..." }
+     * Also check "data" and "error" fields (matching Common/Types/API/HTTPErrorResponse.ts)
+     */
     const serverMessage: string | undefined = extractMessageFromData(data);
 
     if (serverMessage) {
