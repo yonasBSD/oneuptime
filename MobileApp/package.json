@@ -7,7 +7,17 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "compile": "tsc --noEmit"
+    "compile": "tsc --noEmit",
+    "prebuild": "npx expo prebuild --clean",
+    "android:build": "npx eas-cli build --platform android --profile production",
+    "android:build-local": "npm run prebuild && cd android && ./gradlew bundleRelease",
+    "android:build-apk": "npm run prebuild && cd android && ./gradlew assembleRelease",
+    "android:submit": "npx eas-cli submit --platform android --profile production",
+    "ios:build": "npx eas-cli build --platform ios --profile production",
+    "ios:build-local": "npm run prebuild && cd ios && pod install && xcodebuild -workspace OneUptimeOnCall.xcworkspace -scheme OneUptimeOnCall -configuration Release -sdk iphoneos -archivePath build/OneUptimeOnCall.xcarchive archive && xcodebuild -exportArchive -archivePath build/OneUptimeOnCall.xcarchive -exportPath build/output -exportOptionsPlist exportOptions.plist",
+    "ios:submit": "npx eas-cli submit --platform ios --profile production",
+    "build": "npx eas-cli build --platform all --profile production",
+    "submit": "npx eas-cli submit --platform all --profile production"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

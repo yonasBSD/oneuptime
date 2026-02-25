@@ -7,6 +7,8 @@
 import BrowserType from "Common/Types/Monitor/SyntheticMonitors/BrowserType";
 import ScreenSizeType from "Common/Types/Monitor/SyntheticMonitors/ScreenSizeType";
 import BrowserUtil from "Common/Server/Utils/Browser";
+import axios from "axios";
+import crypto from "crypto";
 import vm, { Context } from "node:vm";
 import { Browser, BrowserContext, Page, chromium, firefox } from "playwright";
 
@@ -182,6 +184,8 @@ async function run(config: WorkerConfig): Promise<WorkerResult> {
       page: session.page,
       screenSizeType: config.screenSizeType,
       browserType: config.browserType,
+      axios: axios,
+      crypto: crypto,
       setTimeout: setTimeout,
       clearTimeout: clearTimeout,
       setInterval: setInterval,
