@@ -237,9 +237,7 @@ export default class CompareCriteria {
       if (data.value !== null && data.value !== undefined) {
         const valueStr: string = String(data.value);
         const truncatedValue: string =
-          valueStr.length > 500
-            ? valueStr.substring(0, 500) + "..."
-            : valueStr;
+          valueStr.length > 500 ? valueStr.substring(0, 500) + "..." : valueStr;
         return `${data.criteriaFilter.checkOn} is not empty. Value: ${truncatedValue}`;
       }
 
