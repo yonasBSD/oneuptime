@@ -1,8 +1,10 @@
 import React, {
   FunctionComponent,
   ReactElement,
+  useCallback,
   useEffect,
   useRef,
+  useState,
 } from "react";
 // https://github.com/remarkjs/react-markdown
 import ReactMarkdown from "react-markdown";
@@ -124,6 +126,138 @@ const MermaidDiagram: FunctionComponent<{ chart: string }> = ({
 export interface ComponentProps {
   text: string;
 }
+
+// Language display names
+const langDisplayNames: Record<string, string> = {
+  js: "JavaScript",
+  javascript: "JavaScript",
+  ts: "TypeScript",
+  typescript: "TypeScript",
+  jsx: "JSX",
+  tsx: "TSX",
+  py: "Python",
+  python: "Python",
+  rb: "Ruby",
+  ruby: "Ruby",
+  go: "Go",
+  java: "Java",
+  css: "CSS",
+  html: "HTML",
+  xml: "XML",
+  json: "JSON",
+  yaml: "YAML",
+  yml: "YAML",
+  sql: "SQL",
+  bash: "Bash",
+  shell: "Shell",
+  sh: "Shell",
+  dockerfile: "Dockerfile",
+  docker: "Dockerfile",
+  rust: "Rust",
+  cpp: "C++",
+  c: "C",
+  csharp: "C#",
+  php: "PHP",
+  graphql: "GraphQL",
+  http: "HTTP",
+  markdown: "Markdown",
+  md: "Markdown",
+};
+
+// Code block with copy button and language label
+const CodeBlock: FunctionComponent<{
+  language: string;
+  content: string;
+  rest: any;
+}> = ({
+  language,
+  content,
+  rest,
+}: {
+  language: string;
+  content: string;
+  rest: any;
+}): ReactElement => {
+  const [copied, setCopied] = useState<boolean>(false);
+
+  const handleCopy: () => void = useCallback((): void => {
+    navigator.clipboard
+      .writeText(content)
+      .then((): void => {
+        setCopied(true);
+        setTimeout((): void => {
+          setCopied(false);
+        }, 2000);
+      })
+      .catch((): void => {
+        // Fallback: do nothing
+      });
+  }, [content]);
+
+  const displayLang: string =
+    langDisplayNames[language] ||
+    (language ? language.charAt(0).toUpperCase() + language.slice(1) : "");
+
+  return (
+    <div className="relative rounded-lg mt-4 mb-4 overflow-hidden border border-gray-700">
+      {/* Header bar */}
+      <div className="flex items-center justify-between px-3 py-1.5 bg-gray-800/60 border-b border-gray-700/60">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400 select-none">
+          {displayLang}
+        </span>
+        <button
+          onClick={handleCopy}
+          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium transition-all duration-150 border-none cursor-pointer ${
+            copied
+              ? "text-green-400"
+              : "text-gray-400 hover:text-gray-200 hover:bg-white/10"
+          }`}
+          aria-label="Copy code"
+          type="button"
+        >
+          {copied ? (
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          ) : (
+            <svg
+              className="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+            </svg>
+          )}
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+      {/* Code content */}
+      <SyntaxHighlighter
+        {...rest}
+        PreTag="div"
+        // eslint-disable-next-line react/no-children-prop
+        children={content}
+        language={language}
+        style={vscDarkPlus}
+        className="!rounded-none !mt-0 !mb-0 !bg-gray-900 !p-4 text-sm !border-0"
+        codeTagProps={{ className: "font-mono" }}
+      />
+    </div>
+  );
+};
 
 const MarkdownViewer: FunctionComponent<ComponentProps> = (
   props: ComponentProps,
@@ -324,15 +458,10 @@ const MarkdownViewer: FunctionComponent<ComponentProps> = (
                 : "text-sm px-2 py-1 bg-gray-200 rounded text-gray-900 font-mono";
 
             return match ? (
-              <SyntaxHighlighter
-                {...rest}
-                PreTag="div"
-                // eslint-disable-next-line react/no-children-prop
-                children={content}
-                language={match[1]}
-                style={vscDarkPlus}
-                className="rounded-lg mt-4 mb-4 !bg-gray-900 !p-2 text-sm"
-                codeTagProps={{ className: "font-mono" }}
+              <CodeBlock
+                language={match[1]!}
+                content={content}
+                rest={rest}
               />
             ) : (
               <code className={codeClassName} {...rest}>
