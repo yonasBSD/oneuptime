@@ -1184,14 +1184,14 @@
                         }
                     } catch(e) {}
 
-                    // Collapsible long code blocks (>20 lines)
+                    // Collapsible long code blocks (>100 lines)
                     try {
                         var allPres = document.querySelectorAll('.blog-body pre');
                         allPres.forEach(function(pre) {
                             var codeEl = pre.querySelector('code');
                             if(!codeEl) return;
                             var lineCount = (codeEl.textContent || '').split('\n').length;
-                            if(lineCount > 20) {
+                            if(lineCount > 100) {
                                 pre.classList.add('collapsible-code');
                                 pre.classList.add('collapsed');
                                 var expandBtn = document.createElement('button');
