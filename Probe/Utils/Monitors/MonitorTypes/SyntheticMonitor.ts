@@ -238,7 +238,8 @@ export default class SyntheticMonitor {
 
         const child: ChildProcess = fork(workerPath, [], {
           env: this.getSanitizedEnv(),
-          timeout: timeout + 30000, // fork-level timeout: script timeout + 30s for browser startup/shutdown
+          execArgv: ["--max-old-space-size=512"], // limit worker Node.js heap to prevent unbounded memory growth
+          timeout: timeout + 60000, // fork-level timeout: generous margin since the worker handles its own script timeout
           stdio: ["pipe", "pipe", "pipe", "ipc"],
         });
 
@@ -252,7 +253,7 @@ export default class SyntheticMonitor {
           });
         }
 
-        // Explicit kill timer as final safety net
+        // Explicit kill timer as final safety net (well beyond the worker's own safety timer)
         const killTimer: ReturnType<typeof setTimeout> = global.setTimeout(
           () => {
             if (!resolved) {
@@ -263,7 +264,7 @@ export default class SyntheticMonitor {
               );
             }
           },
-          timeout + 60000, // kill after script timeout + 60s
+          timeout + 120000, // kill after script timeout + 120s (last resort)
         );
 
         child.on("message", (result: WorkerResult) => {

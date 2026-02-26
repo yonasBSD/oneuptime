@@ -199,10 +199,38 @@ async function run(config: WorkerConfig): Promise<WorkerResult> {
 
     let returnVal: unknown;
 
+    /*
+     * vm.runInContext's `timeout` option only applies to synchronous execution.
+     * Since the script is an async IIFE, vm returns a Promise immediately and
+     * the timeout never fires for the async body. We use Promise.race with an
+     * explicit timer to enforce a proper async timeout.
+     */
+    let scriptTimeoutTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const scriptTimeoutPromise: Promise<never> = new Promise<never>(
+      (_: (value: never) => void, reject: (reason: Error) => void) => {
+        scriptTimeoutTimer = setTimeout(() => {
+          reject(
+            new Error(
+              `Synthetic monitor script timed out after ${config.timeout}ms. ` +
+                `Consider optimizing your script or increasing the timeout.`,
+            ),
+          );
+        }, config.timeout);
+      },
+    );
+
     try {
-      returnVal = await vm.runInContext(script, sandbox, {
-        timeout: config.timeout,
-      });
+      returnVal = await Promise.race([
+        vm.runInContext(script, sandbox, {
+          /*
+           * This timeout only guards against synchronous infinite loops.
+           * The async timeout is enforced by the Promise.race above.
+           */
+          timeout: config.timeout,
+        }),
+        scriptTimeoutPromise,
+      ]);
     } catch (scriptErr: unknown) {
       // If the browser crashed during script execution, provide a clearer error
       if (browserDisconnected) {
@@ -211,6 +239,10 @@ async function run(config: WorkerConfig): Promise<WorkerResult> {
         );
       }
       throw scriptErr;
+    } finally {
+      if (scriptTimeoutTimer) {
+        clearTimeout(scriptTimeoutTimer);
+      }
     }
 
     const endTime: [number, number] = process.hrtime(startTime);
@@ -283,8 +315,47 @@ const IPC_FLUSH_TIMEOUT_MS: number = 10000;
 
 // Entry point: receive config via IPC message
 process.on("message", (config: WorkerConfig) => {
+  /*
+   * Global safety timer: if everything else fails (browser hangs during
+   * cleanup, IPC stalls, etc.) force-exit the worker before the parent's
+   * fork timeout kills us with SIGTERM.  This ensures we always send a
+   * meaningful error back instead of producing a confusing "terminated
+   * by the system" message.
+   */
+  const safetyMarginMs: number = 15000; // exit 15s before fork would kill us
+  const globalSafetyTimer: ReturnType<typeof setTimeout> = setTimeout(() => {
+    const errorResult: WorkerResult = {
+      logMessages: [],
+      scriptError:
+        "Synthetic monitor worker safety timeout reached. " +
+        "The script or browser cleanup took too long. " +
+        "Consider simplifying the script or increasing the timeout.",
+      result: undefined,
+      screenshots: {},
+      executionTimeInMS: 0,
+    };
+
+    if (process.send) {
+      process.send(errorResult, () => {
+        process.exit(1);
+      });
+      // If IPC send hangs, force exit after 5s
+      setTimeout(() => {
+        process.exit(1);
+      }, 5000);
+    } else {
+      process.exit(1);
+    }
+  }, config.timeout + safetyMarginMs);
+
+  // Don't let the safety timer prevent graceful exit
+  if (globalSafetyTimer.unref) {
+    globalSafetyTimer.unref();
+  }
+
   run(config)
     .then((result: WorkerResult) => {
+      clearTimeout(globalSafetyTimer);
       if (process.send) {
         /*
          * Wait for the IPC message to be flushed before exiting.
@@ -304,6 +375,8 @@ process.on("message", (config: WorkerConfig) => {
       }
     })
     .catch((err: unknown) => {
+      clearTimeout(globalSafetyTimer);
+
       const errorResult: WorkerResult = {
         logMessages: [],
         scriptError: (err as Error)?.message || String(err),
