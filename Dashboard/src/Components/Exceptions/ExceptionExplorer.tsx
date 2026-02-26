@@ -2,9 +2,7 @@ import React, { FunctionComponent, ReactElement, useEffect } from "react";
 import TelemetryException from "Common/Models/DatabaseModels/TelemetryException";
 import ExceptionDetail from "./ExceptionDetail";
 import StackFrameViewer from "./StackFrameViewer";
-import BreadcrumbTimeline, {
-  BreadcrumbEvent,
-} from "./BreadcrumbTimeline";
+import BreadcrumbTimeline, { BreadcrumbEvent } from "./BreadcrumbTimeline";
 import ExceptionInstance from "Common/Models/AnalyticsModels/ExceptionInstance";
 import Span, { SpanEvent } from "Common/Models/AnalyticsModels/Span";
 import ObjectID from "Common/Types/ObjectID";
@@ -12,7 +10,9 @@ import PageLoader from "Common/UI/Components/Loader/PageLoader";
 import ErrorMessage from "Common/UI/Components/ErrorMessage/ErrorMessage";
 import { PromiseVoidFunction } from "Common/Types/FunctionTypes";
 import ModelAPI from "Common/UI/Utils/ModelAPI/ModelAPI";
-import AnalyticsModelAPI from "Common/UI/Utils/AnalyticsModelAPI/AnalyticsModelAPI";
+import AnalyticsModelAPI, {
+  ListResult,
+} from "Common/UI/Utils/AnalyticsModelAPI/AnalyticsModelAPI";
 import SortOrder from "Common/Types/BaseDatabase/SortOrder";
 import API from "Common/UI/Utils/API/API";
 import ModelDelete from "Common/UI/Components/ModelDelete/ModelDelete";
@@ -125,7 +125,7 @@ const ExceptionExplorer: FunctionComponent<ComponentProps> = (
     // Fetch the latest exception instance for parsed frames and additional data
     if (updatedTelemetryException.fingerprint) {
       try {
-        const instanceResult =
+        const instanceResult: ListResult<ExceptionInstance> =
           await AnalyticsModelAPI.getList<ExceptionInstance>({
             modelType: ExceptionInstance,
             query: {
@@ -153,40 +153,40 @@ const ExceptionExplorer: FunctionComponent<ComponentProps> = (
           const instance: ExceptionInstance = instanceResult.data[0]!;
           if (instance.traceId) {
             try {
-              const spanResult = await AnalyticsModelAPI.getList<Span>({
-                modelType: Span,
-                query: {
-                  traceId: instance.traceId,
-                },
-                limit: 50,
-                skip: 0,
-                select: {
-                  events: true,
-                  name: true,
-                  startTime: true,
-                },
-                sort: {
-                  startTime: SortOrder.Descending,
-                },
-              });
+              const spanResult: ListResult<Span> =
+                await AnalyticsModelAPI.getList<Span>({
+                  modelType: Span,
+                  query: {
+                    traceId: instance.traceId,
+                  },
+                  limit: 50,
+                  skip: 0,
+                  select: {
+                    events: true,
+                    name: true,
+                    startTime: true,
+                  },
+                  sort: {
+                    startTime: SortOrder.Descending,
+                  },
+                });
 
               // Extract span events as breadcrumbs
               const events: BreadcrumbEvent[] = [];
               for (const span of spanResult.data) {
-                if (
-                  span.events &&
-                  Array.isArray(span.events)
-                ) {
+                if (span.events && Array.isArray(span.events)) {
                   for (const event of span.events) {
                     const spanEvent: SpanEvent = event as SpanEvent;
                     events.push({
                       name: spanEvent.name || "",
-                      time: spanEvent.time instanceof Date
-                        ? spanEvent.time
-                        : new Date(spanEvent.time || new Date().toISOString()),
+                      time:
+                        spanEvent.time instanceof Date
+                          ? spanEvent.time
+                          : new Date(
+                              spanEvent.time || new Date().toISOString(),
+                            ),
                       timeUnixNano: spanEvent.timeUnixNano || 0,
-                      attributes:
-                        (spanEvent.attributes as JSONObject) || {},
+                      attributes: (spanEvent.attributes as JSONObject) || {},
                     });
                   }
                 }

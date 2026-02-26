@@ -22,9 +22,7 @@ import {
   SpanStatus,
 } from "Common/Models/AnalyticsModels/Span";
 import ExceptionUtil from "../Utils/Exception";
-import StackTraceParser, {
-  ParsedStackTrace,
-} from "../Utils/StackTraceParser";
+import StackTraceParser, { ParsedStackTrace } from "../Utils/StackTraceParser";
 import logger from "Common/Server/Utils/Logger";
 import SpanService from "Common/Server/Services/SpanService";
 import ExceptionInstanceService from "Common/Server/Services/ExceptionInstanceService";
@@ -515,9 +513,13 @@ export default class OtelTracesIngestService extends OtelIngestBaseService {
 
               // Extract release and environment from resource attributes
               const release: string =
-                ((spanContext.resourceAttributes["resource.service.version"] as string) || "");
+                (spanContext.resourceAttributes[
+                  "resource.service.version"
+                ] as string) || "";
               const environment: string =
-                ((spanContext.resourceAttributes["resource.deployment.environment"] as string) || "");
+                (spanContext.resourceAttributes[
+                  "resource.deployment.environment"
+                ] as string) || "";
 
               // Parse stack trace into structured frames
               let parsedFramesJson: string = "[]";

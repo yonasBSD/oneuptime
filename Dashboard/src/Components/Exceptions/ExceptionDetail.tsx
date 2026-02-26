@@ -49,7 +49,8 @@ const ExceptionDetail: FunctionComponent<ComponentProps> = (
     fields.push({
       key: "firstSeenInRelease",
       title: "Introduced In Release",
-      description: "The release version where this exception was first observed.",
+      description:
+        "The release version where this exception was first observed.",
       fieldType: FieldType.Text,
     });
   }
@@ -58,7 +59,8 @@ const ExceptionDetail: FunctionComponent<ComponentProps> = (
     fields.push({
       key: "lastSeenInRelease",
       title: "Last Seen In Release",
-      description: "The most recent release version where this exception was observed.",
+      description:
+        "The most recent release version where this exception was observed.",
       fieldType: FieldType.Text,
     });
   }

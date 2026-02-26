@@ -201,9 +201,7 @@ net/http.(*ServeMux).ServeHTTP(0xc0000b4000, 0x7f3a9c, 0xc0000b8000)
 
       const firstFrame: StackFrame | undefined = result.frames[0];
       expect(firstFrame).toBeDefined();
-      expect(firstFrame!.fileName).toBe(
-        "/app/controllers/users_controller.rb",
-      );
+      expect(firstFrame!.fileName).toBe("/app/controllers/users_controller.rb");
       expect(firstFrame!.lineNumber).toBe(42);
       expect(firstFrame!.functionName).toBe("show");
       expect(firstFrame!.inApp).toBe(true);

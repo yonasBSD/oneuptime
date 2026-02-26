@@ -137,13 +137,11 @@ export default class StackTraceParser {
     const frames: StackFrame[] = [];
 
     // Pattern 1: at functionName (filePath:line:col)
-    const patternWithParens: RegExp =
-      /^at\s+(.+?)\s+\((.+?):(\d+):(\d+)\)$/;
+    const patternWithParens: RegExp = /^at\s+(.+?)\s+\((.+?):(\d+):(\d+)\)$/;
     // Pattern 2: at filePath:line:col
     const patternWithoutParens: RegExp = /^at\s+(.+?):(\d+):(\d+)$/;
     // Pattern 3: at functionName (filePath:line)
-    const patternWithParensNoCol: RegExp =
-      /^at\s+(.+?)\s+\((.+?):(\d+)\)$/;
+    const patternWithParensNoCol: RegExp = /^at\s+(.+?)\s+\((.+?):(\d+)\)$/;
     // Pattern 4: at eval (eval at functionName (filePath:line:col))
     const patternEval: RegExp =
       /^at\s+eval\s+\(eval\s+at\s+(.+?)\s+\((.+?):(\d+):(\d+)\)/;
@@ -233,14 +231,11 @@ export default class StackTraceParser {
   private static parseJava(lines: string[]): StackFrame[] {
     const frames: StackFrame[] = [];
     // Pattern: at com.package.Class.method(File.java:123)
-    const pattern: RegExp =
-      /^at\s+([\w.$]+)\(([\w.]+):(\d+)\)$/;
+    const pattern: RegExp = /^at\s+([\w.$]+)\(([\w.]+):(\d+)\)$/;
     // Pattern for native methods: at com.package.Class.method(Native Method)
-    const patternNative: RegExp =
-      /^at\s+([\w.$]+)\(Native Method\)$/;
+    const patternNative: RegExp = /^at\s+([\w.$]+)\(Native Method\)$/;
     // Pattern for unknown source: at com.package.Class.method(Unknown Source)
-    const patternUnknown: RegExp =
-      /^at\s+([\w.$]+)\(Unknown Source\)$/;
+    const patternUnknown: RegExp = /^at\s+([\w.$]+)\(Unknown Source\)$/;
 
     for (const line of lines) {
       let match: RegExpMatchArray | null = null;
@@ -333,8 +328,7 @@ export default class StackTraceParser {
    */
   private static parseRuby(lines: string[]): StackFrame[] {
     const frames: StackFrame[] = [];
-    const pattern: RegExp =
-      /^(.+?):(\d+):in\s+[`'](.+?)'$/;
+    const pattern: RegExp = /^(.+?):(\d+):in\s+[`'](.+?)'$/;
 
     for (const line of lines) {
       const match: RegExpMatchArray | null = line.match(pattern);
@@ -358,8 +352,7 @@ export default class StackTraceParser {
   private static parseCSharp(lines: string[]): StackFrame[] {
     const frames: StackFrame[] = [];
     // Pattern: at Namespace.Class.Method(params) in /path/to/file.cs:line 42
-    const patternWithFile: RegExp =
-      /^at\s+(.+?)\s+in\s+(.+?):line\s+(\d+)$/;
+    const patternWithFile: RegExp = /^at\s+(.+?)\s+in\s+(.+?):line\s+(\d+)$/;
     // Pattern: at Namespace.Class.Method(params)
     const patternWithoutFile: RegExp = /^at\s+([\w.<>+]+\(.*?\))$/;
 
@@ -399,8 +392,7 @@ export default class StackTraceParser {
   private static parsePHP(lines: string[]): StackFrame[] {
     const frames: StackFrame[] = [];
     // Pattern: #0 /path/to/file.php(42): ClassName->method()
-    const pattern: RegExp =
-      /^#\d+\s+(.+?)\((\d+)\):\s+(.+)$/;
+    const pattern: RegExp = /^#\d+\s+(.+?)\((\d+)\):\s+(.+)$/;
     // Pattern: #0 {main}
     const patternMain: RegExp = /^#\d+\s+\{main\}$/;
 

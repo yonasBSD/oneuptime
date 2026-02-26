@@ -314,7 +314,8 @@ export default class ExceptionInstance extends AnalyticsBaseModel {
     const releaseColumn: AnalyticsTableColumn = new AnalyticsTableColumn({
       key: "release",
       title: "Release",
-      description: "Service version / release from service.version resource attribute",
+      description:
+        "Service version / release from service.version resource attribute",
       required: false,
       type: TableColumnType.Text,
       accessControl: {
@@ -337,7 +338,8 @@ export default class ExceptionInstance extends AnalyticsBaseModel {
     const environmentColumn: AnalyticsTableColumn = new AnalyticsTableColumn({
       key: "environment",
       title: "Environment",
-      description: "Deployment environment from deployment.environment resource attribute",
+      description:
+        "Deployment environment from deployment.environment resource attribute",
       required: false,
       type: TableColumnType.Text,
       accessControl: {

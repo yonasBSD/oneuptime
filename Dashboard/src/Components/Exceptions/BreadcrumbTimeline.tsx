@@ -183,8 +183,7 @@ const BreadcrumbTimeline: FunctionComponent<ComponentProps> = (
       return OneUptimeDate.getDateAsLocalFormattedString(eventTime);
     }
 
-    const diffMs: number =
-      eventTime.getTime() - props.exceptionTime.getTime();
+    const diffMs: number = eventTime.getTime() - props.exceptionTime.getTime();
     const absDiffMs: number = Math.abs(diffMs);
 
     if (absDiffMs < 1000) {
@@ -291,9 +290,7 @@ const BreadcrumbTimeline: FunctionComponent<ComponentProps> = (
                     <Icon
                       icon={icon}
                       size={SizeProp.Smaller}
-                      className={
-                        isException ? "text-red-600" : "text-gray-500"
-                      }
+                      className={isException ? "text-red-600" : "text-gray-500"}
                     />
                   </div>
                   {index < sortedEvents.length - 1 && (
@@ -310,17 +307,13 @@ const BreadcrumbTimeline: FunctionComponent<ComponentProps> = (
                 <div className="flex-1 min-w-0">
                   <div
                     className={`text-sm font-mono truncate ${
-                      isException
-                        ? "text-red-800 font-medium"
-                        : "text-gray-800"
+                      isException ? "text-red-800 font-medium" : "text-gray-800"
                     }`}
                   >
                     {summary}
                   </div>
                   {detail && (
-                    <div className="text-xs text-gray-500 mt-0.5">
-                      {detail}
-                    </div>
+                    <div className="text-xs text-gray-500 mt-0.5">{detail}</div>
                   )}
                 </div>
 

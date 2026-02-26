@@ -50,14 +50,13 @@ const StackFrameViewer: FunctionComponent<ComponentProps> = (
     );
   }
 
-  const appFrames: Array<{ frame: StackFrame; originalIndex: number }> =
-    frames
-      .map((frame: StackFrame, index: number) => {
-        return { frame, originalIndex: index };
-      })
-      .filter(({ frame }: { frame: StackFrame }) => {
-        return frame.inApp;
-      });
+  const appFrames: Array<{ frame: StackFrame; originalIndex: number }> = frames
+    .map((frame: StackFrame, index: number) => {
+      return { frame, originalIndex: index };
+    })
+    .filter(({ frame }: { frame: StackFrame }) => {
+      return frame.inApp;
+    });
 
   const libraryFrames: Array<{ frame: StackFrame; originalIndex: number }> =
     frames
@@ -85,10 +84,7 @@ const StackFrameViewer: FunctionComponent<ComponentProps> = (
     setExpandedFrameIndex(expandedFrameIndex === index ? null : index);
   };
 
-  type RenderFrameFunction = (
-    frame: StackFrame,
-    index: number,
-  ) => ReactElement;
+  type RenderFrameFunction = (frame: StackFrame, index: number) => ReactElement;
 
   const renderFrame: RenderFrameFunction = (
     frame: StackFrame,
