@@ -9,7 +9,7 @@ import ReactMarkdown from "react-markdown";
 // https://github.com/remarkjs/remark-gfm
 import remarkGfm from "remark-gfm";
 import SyntaxHighlighter from "react-syntax-highlighter/dist/esm/prism-light";
-import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import javascript from "react-syntax-highlighter/dist/esm/languages/prism/javascript";
 import typescript from "react-syntax-highlighter/dist/esm/languages/prism/typescript";
 import jsx from "react-syntax-highlighter/dist/esm/languages/prism/jsx";
@@ -330,7 +330,7 @@ const MarkdownViewer: FunctionComponent<ComponentProps> = (
                 // eslint-disable-next-line react/no-children-prop
                 children={content}
                 language={match[1]}
-                style={a11yDark}
+                style={vscDarkPlus}
                 className="rounded-lg mt-4 mb-4 !bg-gray-900 !p-2 text-sm"
                 codeTagProps={{ className: "font-mono" }}
               />
