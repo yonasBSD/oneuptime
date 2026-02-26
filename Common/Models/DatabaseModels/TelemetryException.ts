@@ -1050,9 +1050,9 @@ export default class TelemetryException extends DatabaseBaseModel {
     required: false,
     type: TableColumnType.LongText,
     canReadOnRelationQuery: true,
-    title: "Release",
+    title: "First Seen In Release",
     description:
-      "Service version / release from service.version resource attribute",
+      "The service version / release in which this exception was first observed",
     example: "v1.2.3",
   })
   @Column({
@@ -1060,7 +1060,42 @@ export default class TelemetryException extends DatabaseBaseModel {
     type: ColumnType.LongText,
     length: ColumnLength.LongText,
   })
-  public release?: string = undefined;
+  public firstSeenInRelease?: string = undefined;
+
+  @ColumnAccessControl({
+    create: [
+      Permission.ProjectOwner,
+      Permission.ProjectAdmin,
+      Permission.CreateTelemetryException,
+    ],
+    read: [
+      Permission.ProjectOwner,
+      Permission.ProjectAdmin,
+      Permission.ProjectMember,
+      Permission.ReadTelemetryException,
+      Permission.ReadAllProjectResources,
+    ],
+    update: [
+      Permission.ProjectOwner,
+      Permission.ProjectAdmin,
+      Permission.EditTelemetryException,
+    ],
+  })
+  @TableColumn({
+    required: false,
+    type: TableColumnType.LongText,
+    canReadOnRelationQuery: true,
+    title: "Last Seen In Release",
+    description:
+      "The most recent service version / release in which this exception was observed",
+    example: "v1.4.0",
+  })
+  @Column({
+    nullable: true,
+    type: ColumnType.LongText,
+    length: ColumnLength.LongText,
+  })
+  public lastSeenInRelease?: string = undefined;
 
   @ColumnAccessControl({
     create: [

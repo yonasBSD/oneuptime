@@ -94,7 +94,8 @@ const ExceptionExplorer: FunctionComponent<ComponentProps> = (
           occuranceCount: true,
           isArchived: true,
           isResolved: true,
-          release: true,
+          firstSeenInRelease: true,
+          lastSeenInRelease: true,
           environment: true,
           markedAsArchivedAt: true,
           markedAsArchivedByUser: {

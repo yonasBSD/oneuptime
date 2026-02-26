@@ -5,7 +5,10 @@ export class MigrationName1772110755000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `ALTER TABLE "TelemetryException" ADD "release" character varying`,
+      `ALTER TABLE "TelemetryException" ADD "firstSeenInRelease" character varying`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "TelemetryException" ADD "lastSeenInRelease" character varying`,
     );
     await queryRunner.query(
       `ALTER TABLE "TelemetryException" ADD "environment" character varying`,
@@ -17,7 +20,10 @@ export class MigrationName1772110755000 implements MigrationInterface {
       `ALTER TABLE "TelemetryException" DROP COLUMN "environment"`,
     );
     await queryRunner.query(
-      `ALTER TABLE "TelemetryException" DROP COLUMN "release"`,
+      `ALTER TABLE "TelemetryException" DROP COLUMN "lastSeenInRelease"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "TelemetryException" DROP COLUMN "firstSeenInRelease"`,
     );
   }
 }

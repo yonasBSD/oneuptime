@@ -20,7 +20,7 @@ export interface TelemetryExceptionPayload {
   exceptionType?: string;
   stackTrace?: string;
   message?: string;
-  release?: string;
+  release?: string; // current release from the incoming event
   environment?: string;
 }
 
@@ -265,7 +265,9 @@ export default class ExceptionUtil {
           isResolved: false,
           markedAsResolvedAt: null, // unmark as resolved if it was marked as resolved
           occuranceCount: (existingExceptionStatus.occuranceCount || 0) + 1,
-          ...(exception.release ? { release: exception.release } : {}),
+          ...(exception.release
+            ? { lastSeenInRelease: exception.release }
+            : {}),
           ...(exception.environment
             ? { environment: exception.environment }
             : {}),
@@ -299,7 +301,8 @@ export default class ExceptionUtil {
       }
 
       if (exception.release) {
-        newExceptionStatus.release = exception.release;
+        newExceptionStatus.firstSeenInRelease = exception.release;
+        newExceptionStatus.lastSeenInRelease = exception.release;
       }
 
       if (exception.environment) {
