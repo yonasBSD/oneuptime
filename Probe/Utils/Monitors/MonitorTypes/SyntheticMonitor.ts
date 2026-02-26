@@ -253,12 +253,51 @@ export default class SyntheticMonitor {
           });
         }
 
+        /**
+         * Ensure the child process is always killed to prevent leaked processes.
+         * The worker calls process.exit() on itself, but if that hangs (e.g.
+         * browser cleanup holding a ref) the child would linger until the OS
+         * reclaims it.  We send SIGTERM first to allow graceful shutdown, then
+         * schedule a SIGKILL as a guaranteed cleanup.
+         */
+        const ensureChildKilled: () => void = (): void => {
+          try {
+            if (child.exitCode === null && child.signalCode === null) {
+              // Child is still running — ask it to exit gracefully
+              child.kill("SIGTERM");
+
+              // If it doesn't exit within 5s, force-kill
+              const forceKillTimer: ReturnType<typeof setTimeout> =
+                global.setTimeout(() => {
+                  try {
+                    if (child.exitCode === null && child.signalCode === null) {
+                      child.kill("SIGKILL");
+                    }
+                  } catch {
+                    // ignore — process may have already exited
+                  }
+                }, 5000);
+
+              // Don't let this timer keep the parent process alive
+              if (forceKillTimer.unref) {
+                forceKillTimer.unref();
+              }
+            }
+          } catch {
+            // ignore — process may have already exited
+          }
+        };
+
         // Explicit kill timer as final safety net (well beyond the worker's own safety timer)
         const killTimer: ReturnType<typeof setTimeout> = global.setTimeout(
           () => {
             if (!resolved) {
               resolved = true;
-              child.kill("SIGKILL");
+              try {
+                child.kill("SIGKILL");
+              } catch {
+                // ignore — process may have already exited
+              }
               reject(
                 new Error("Synthetic monitor worker killed after timeout"),
               );
@@ -271,6 +310,8 @@ export default class SyntheticMonitor {
           if (!resolved) {
             resolved = true;
             global.clearTimeout(killTimer);
+            // Kill the child in case it hangs during its own cleanup
+            ensureChildKilled();
             resolve(result);
           }
         });
@@ -279,6 +320,8 @@ export default class SyntheticMonitor {
           if (!resolved) {
             resolved = true;
             global.clearTimeout(killTimer);
+            // Kill the child — it errored but may still be running
+            ensureChildKilled();
             reject(err);
           }
         });
