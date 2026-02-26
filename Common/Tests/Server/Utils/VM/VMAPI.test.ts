@@ -1,24 +1,36 @@
 // Mock all heavy dependencies so the test focuses on template logic only
-jest.mock("../../../../Server/EnvironmentConfig", () => ({
-  IsolatedVMHostname: "localhost",
-}));
+jest.mock("../../../../Server/EnvironmentConfig", () => {
+  return {
+    IsolatedVMHostname: "localhost",
+  };
+});
 
-jest.mock("../../../../Server/Middleware/ClusterKeyAuthorization", () => ({
-  default: { getClusterKeyHeaders: () => ({}) },
-}));
+jest.mock("../../../../Server/Middleware/ClusterKeyAuthorization", () => {
+  return {
+    default: {
+      getClusterKeyHeaders: () => {
+        return {};
+      },
+    },
+  };
+});
 
-jest.mock("../../../../Utils/API", () => ({
-  default: { post: jest.fn() },
-}));
+jest.mock("../../../../Utils/API", () => {
+  return {
+    default: { post: jest.fn() },
+  };
+});
 
-jest.mock("../../../../Server/Utils/Logger", () => ({
-  default: {
-    error: jest.fn(),
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-  },
-}));
+jest.mock("../../../../Server/Utils/Logger", () => {
+  return {
+    default: {
+      error: jest.fn(),
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+    },
+  };
+});
 
 jest.mock("../../../../Server/Utils/Telemetry/CaptureSpan", () => {
   return {
@@ -36,32 +48,33 @@ jest.mock("../../../../Server/Utils/Telemetry/CaptureSpan", () => {
 
 import VMUtil from "../../../../Server/Utils/VM/VMAPI";
 import { describe, expect, it } from "@jest/globals";
+import { JSONObject } from "../../../../Types/JSON";
 
 describe("VMUtil", () => {
   describe("deepFind", () => {
     it("should find top-level keys", () => {
-      const obj = { status: "firing", receiver: "test" };
+      const obj: JSONObject = { status: "firing", receiver: "test" };
       expect(VMUtil.deepFind(obj, "status")).toBe("firing");
     });
 
     it("should find nested keys with dot notation", () => {
-      const obj = { data: { nested: { value: 42 } } };
+      const obj: JSONObject = { data: { nested: { value: 42 } } };
       expect(VMUtil.deepFind(obj, "data.nested.value")).toBe(42);
     });
 
     it("should find array elements with bracket notation", () => {
-      const obj = { items: ["a", "b", "c"] };
+      const obj: JSONObject = { items: ["a", "b", "c"] };
       expect(VMUtil.deepFind(obj, "items[0]")).toBe("a");
       expect(VMUtil.deepFind(obj, "items[2]")).toBe("c");
     });
 
     it("should find last array element with [last]", () => {
-      const obj = { items: [1, 2, 3] };
+      const obj: JSONObject = { items: [1, 2, 3] };
       expect(VMUtil.deepFind(obj, "items[last]")).toBe(3);
     });
 
     it("should return undefined for missing paths", () => {
-      const obj = { a: { b: 1 } };
+      const obj: JSONObject = { a: { b: 1 } };
       expect(VMUtil.deepFind(obj, "a.c")).toBeUndefined();
       expect(VMUtil.deepFind(obj, "x.y.z")).toBeUndefined();
     });
@@ -69,8 +82,8 @@ describe("VMUtil", () => {
 
   describe("replaceValueInPlace", () => {
     it("should replace simple variables", () => {
-      const storageMap = { name: "test", status: "firing" };
-      const result = VMUtil.replaceValueInPlace(
+      const storageMap: JSONObject = { name: "test", status: "firing" };
+      const result: string = VMUtil.replaceValueInPlace(
         storageMap,
         "Alert: {{name}} is {{status}}",
         false,
@@ -79,10 +92,10 @@ describe("VMUtil", () => {
     });
 
     it("should replace nested dotted path variables", () => {
-      const storageMap = {
+      const storageMap: JSONObject = {
         requestBody: { title: "My Alert", data: { severity: "high" } },
       };
-      const result = VMUtil.replaceValueInPlace(
+      const result: string = VMUtil.replaceValueInPlace(
         storageMap,
         "Title: {{requestBody.title}}, Severity: {{requestBody.data.severity}}",
         false,
@@ -91,8 +104,8 @@ describe("VMUtil", () => {
     });
 
     it("should leave unresolved variables as-is", () => {
-      const storageMap = { name: "test" };
-      const result = VMUtil.replaceValueInPlace(
+      const storageMap: JSONObject = { name: "test" };
+      const result: string = VMUtil.replaceValueInPlace(
         storageMap,
         "{{name}} {{unknown}}",
         false,
@@ -103,7 +116,7 @@ describe("VMUtil", () => {
 
   describe("expandEachLoops", () => {
     it("should expand a simple each loop over an array of objects", () => {
-      const storageMap = {
+      const storageMap: JSONObject = {
         requestBody: {
           alerts: [
             { labels: { label: "Coralpay" }, status: "firing" },
@@ -112,86 +125,116 @@ describe("VMUtil", () => {
         },
       };
 
-      const template =
+      const template: string =
         "Alerts:{{#each requestBody.alerts}} {{labels.label}}({{status}}){{/each}}";
-      const result = VMUtil.expandEachLoops(storageMap, template, false);
-      expect(result).toBe(
-        "Alerts: Coralpay(firing) capitecpay(resolved)",
+      const result: string = VMUtil.expandEachLoops(
+        storageMap,
+        template,
+        false,
       );
+      expect(result).toBe("Alerts: Coralpay(firing) capitecpay(resolved)");
     });
 
     it("should support {{@index}} in loops", () => {
-      const storageMap = {
+      const storageMap: JSONObject = {
         items: [{ name: "a" }, { name: "b" }, { name: "c" }],
       };
 
-      const template =
-        "{{#each items}}{{@index}}: {{name}} {{/each}}";
-      const result = VMUtil.expandEachLoops(storageMap, template, false);
+      const template: string = "{{#each items}}{{@index}}: {{name}} {{/each}}";
+      const result: string = VMUtil.expandEachLoops(
+        storageMap,
+        template,
+        false,
+      );
       expect(result).toBe("0: a 1: b 2: c ");
     });
 
     it("should support {{this}} for primitive arrays", () => {
-      const storageMap = {
+      const storageMap: JSONObject = {
         tags: ["critical", "production", "api"],
       };
 
-      const template = "Tags:{{#each tags}} {{this}}{{/each}}";
-      const result = VMUtil.expandEachLoops(storageMap, template, false);
+      const template: string = "Tags:{{#each tags}} {{this}}{{/each}}";
+      const result: string = VMUtil.expandEachLoops(
+        storageMap,
+        template,
+        false,
+      );
       expect(result).toBe("Tags: critical production api");
     });
 
     it("should remove the block if the path is not an array", () => {
-      const storageMap = { notAnArray: "hello" };
-      const template = "Before {{#each notAnArray}}body{{/each}} After";
-      const result = VMUtil.expandEachLoops(storageMap, template, false);
+      const storageMap: JSONObject = { notAnArray: "hello" };
+      const template: string = "Before {{#each notAnArray}}body{{/each}} After";
+      const result: string = VMUtil.expandEachLoops(
+        storageMap,
+        template,
+        false,
+      );
       expect(result).toBe("Before  After");
     });
 
     it("should remove the block if the path does not exist", () => {
-      const storageMap = {};
-      const template = "Before {{#each missing.path}}body{{/each}} After";
-      const result = VMUtil.expandEachLoops(storageMap, template, false);
+      const storageMap: JSONObject = {};
+      const template: string =
+        "Before {{#each missing.path}}body{{/each}} After";
+      const result: string = VMUtil.expandEachLoops(
+        storageMap,
+        template,
+        false,
+      );
       expect(result).toBe("Before  After");
     });
 
     it("should handle empty arrays", () => {
-      const storageMap = { items: [] };
-      const template = "Before {{#each items}}item{{/each}} After";
-      const result = VMUtil.expandEachLoops(storageMap, template, false);
+      const storageMap: JSONObject = { items: [] };
+      const template: string = "Before {{#each items}}item{{/each}} After";
+      const result: string = VMUtil.expandEachLoops(
+        storageMap,
+        template,
+        false,
+      );
       expect(result).toBe("Before  After");
     });
 
     it("should support nested each loops", () => {
-      const storageMap = {
+      const storageMap: JSONObject = {
         groups: [
           { name: "G1", members: [{ id: 1 }, { id: 2 }] },
           { name: "G2", members: [{ id: 3 }] },
         ],
       };
 
-      const template =
+      const template: string =
         "{{#each groups}}Group {{name}}: {{#each members}}{{id}} {{/each}}| {{/each}}";
-      const result = VMUtil.expandEachLoops(storageMap, template, false);
+      const result: string = VMUtil.expandEachLoops(
+        storageMap,
+        template,
+        false,
+      );
       expect(result).toBe("Group G1: 1 2 | Group G2: 3 | ");
     });
 
     it("should allow fallback to parent variables inside loops", () => {
-      const storageMap = {
+      const storageMap: JSONObject = {
         globalTitle: "My Dashboard",
         items: [{ name: "item1" }, { name: "item2" }],
       };
 
-      const template =
+      const template: string =
         "{{#each items}}{{name}} in {{globalTitle}} {{/each}}";
-      const result = VMUtil.expandEachLoops(storageMap, template, false);
+      const result: string = VMUtil.expandEachLoops(
+        storageMap,
+        template,
+        false,
+      );
       expect(result).toBe("item1 in My Dashboard item2 in My Dashboard ");
     });
   });
 
   describe("replaceValueInPlace with each loops (end-to-end)", () => {
     it("should expand loops and then replace remaining variables", () => {
-      const storageMap = {
+      const storageMap: JSONObject = {
         requestBody: {
           receiver: "Fundsflow",
           alerts: [
@@ -207,16 +250,20 @@ describe("VMUtil", () => {
         },
       };
 
-      const template =
+      const template: string =
         "Receiver: {{requestBody.receiver}}\n{{#each requestBody.alerts}}- {{labels.label}}: {{status}}\n{{/each}}";
-      const result = VMUtil.replaceValueInPlace(storageMap, template, false);
+      const result: string = VMUtil.replaceValueInPlace(
+        storageMap,
+        template,
+        false,
+      );
       expect(result).toBe(
         "Receiver: Fundsflow\n- Coralpay: firing\n- capitecpay: firing\n",
       );
     });
 
     it("should handle the Grafana alerts use case", () => {
-      const storageMap = {
+      const storageMap: JSONObject = {
         requestBody: {
           status: "firing",
           alerts: [
@@ -248,9 +295,13 @@ describe("VMUtil", () => {
         },
       };
 
-      const template =
+      const template: string =
         "Alert Labels:\n{{#each requestBody.alerts}}- {{labels.label}}\n{{/each}}";
-      const result = VMUtil.replaceValueInPlace(storageMap, template, false);
+      const result: string = VMUtil.replaceValueInPlace(
+        storageMap,
+        template,
+        false,
+      );
       expect(result).toBe(
         "Alert Labels:\n- Coralpay\n- capitecpay\n- capricorn\n",
       );

@@ -10,11 +10,7 @@ import IconProp from "Common/Types/Icon/IconProp";
 import Pill, { PillSize } from "Common/UI/Components/Pill/Pill";
 import Tooltip from "Common/UI/Components/Tooltip/Tooltip";
 import CopyableButton from "Common/UI/Components/CopyableButton/CopyableButton";
-import {
-  Green500,
-  Gray500,
-  Red500,
-} from "Common/Types/BrandColors";
+import { Green500, Gray500, Red500 } from "Common/Types/BrandColors";
 
 export interface StackFrame {
   functionName: string;
@@ -147,34 +143,30 @@ interface FrameNumberBadgeProps {
   inApp: boolean;
 }
 
-const FrameNumberBadge: FunctionComponent<FrameNumberBadgeProps> = (
-  badgeProps: FrameNumberBadgeProps,
-): ReactElement => {
-  if (badgeProps.isTopAppFrame) {
+const FrameNumberBadge: FunctionComponent<FrameNumberBadgeProps> = ({
+  index,
+  isTopAppFrame,
+  inApp,
+}: FrameNumberBadgeProps): ReactElement => {
+  if (isTopAppFrame) {
     return (
       <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-        <span className="text-xs font-bold text-red-700">
-          {badgeProps.index}
-        </span>
+        <span className="text-xs font-bold text-red-700">{index}</span>
       </div>
     );
   }
 
-  if (badgeProps.inApp) {
+  if (inApp) {
     return (
       <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
-        <span className="text-xs font-semibold text-indigo-600">
-          {badgeProps.index}
-        </span>
+        <span className="text-xs font-semibold text-indigo-600">{index}</span>
       </div>
     );
   }
 
   return (
     <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-      <span className="text-xs font-medium text-gray-400">
-        {badgeProps.index}
-      </span>
+      <span className="text-xs font-medium text-gray-400">{index}</span>
     </div>
   );
 };
@@ -186,11 +178,10 @@ interface FrameDetailPanelProps {
   isTopAppFrame: boolean;
 }
 
-const FrameDetailPanel: FunctionComponent<FrameDetailPanelProps> = (
-  detailProps: FrameDetailPanelProps,
-): ReactElement => {
-  const { frame } = detailProps;
-
+const FrameDetailPanel: FunctionComponent<FrameDetailPanelProps> = ({
+  frame,
+  isTopAppFrame,
+}: FrameDetailPanelProps): ReactElement => {
   const rows: Array<{
     label: string;
     value: string;
@@ -246,9 +237,7 @@ const FrameDetailPanel: FunctionComponent<FrameDetailPanelProps> = (
               {frame.fileName || "unknown"}
             </span>
           </div>
-          <CopyableButton
-            textToBeCopied={formatFullLocation(frame)}
-          />
+          <CopyableButton textToBeCopied={formatFullLocation(frame)} />
         </div>
 
         {/* Detail rows */}
@@ -267,9 +256,7 @@ const FrameDetailPanel: FunctionComponent<FrameDetailPanelProps> = (
                 <div
                   key={i}
                   className={`flex px-4 py-2 ${
-                    row.highlight && detailProps.isTopAppFrame
-                      ? "bg-red-950/20"
-                      : ""
+                    row.highlight && isTopAppFrame ? "bg-red-950/20" : ""
                   }`}
                 >
                   <span className="text-xs text-gray-500 w-20 flex-shrink-0 pt-0.5">
@@ -279,7 +266,7 @@ const FrameDetailPanel: FunctionComponent<FrameDetailPanelProps> = (
                     className={`text-sm break-all ${
                       row.mono ? "font-mono" : ""
                     } ${
-                      row.highlight && detailProps.isTopAppFrame
+                      row.highlight && isTopAppFrame
                         ? "text-red-300 font-medium"
                         : "text-gray-200"
                     }`}
@@ -306,10 +293,13 @@ interface FrameRowProps {
   onToggle: () => void;
 }
 
-const FrameRow: FunctionComponent<FrameRowProps> = (
-  rowProps: FrameRowProps,
-): ReactElement => {
-  const { frame, isExpanded, isTopAppFrame } = rowProps;
+const FrameRow: FunctionComponent<FrameRowProps> = ({
+  frame,
+  originalIndex,
+  isExpanded,
+  isTopAppFrame,
+  onToggle,
+}: FrameRowProps): ReactElement => {
   const location: string = formatLocation(frame);
 
   return (
@@ -325,11 +315,11 @@ const FrameRow: FunctionComponent<FrameRowProps> = (
       {/* Clickable row */}
       <button
         className="w-full flex items-center gap-3 px-4 py-2.5 text-left cursor-pointer group"
-        onClick={rowProps.onToggle}
+        onClick={onToggle}
       >
         {/* Frame number */}
         <FrameNumberBadge
-          index={rowProps.originalIndex}
+          index={originalIndex}
           isTopAppFrame={isTopAppFrame}
           inApp={frame.inApp}
         />
@@ -339,7 +329,9 @@ const FrameRow: FunctionComponent<FrameRowProps> = (
           icon={isExpanded ? IconProp.ChevronDown : IconProp.ChevronRight}
           size={SizeProp.ExtraSmall}
           className={`flex-shrink-0 transition-colors ${
-            isExpanded ? "text-gray-500" : "text-gray-300 group-hover:text-gray-400"
+            isExpanded
+              ? "text-gray-500"
+              : "text-gray-300 group-hover:text-gray-400"
           }`}
         />
 
@@ -401,26 +393,20 @@ interface CollapsedLibGroupRowProps {
   onExpand: () => void;
 }
 
-const CollapsedLibGroupRow: FunctionComponent<CollapsedLibGroupRowProps> = (
-  groupProps: CollapsedLibGroupRowProps,
-): ReactElement => {
-  const count: number = groupProps.group.frames.length;
-  const firstFrame: StackFrame = groupProps.group.frames[0]!.frame;
-  const lastFrame: StackFrame =
-    groupProps.group.frames[count - 1]!.frame;
+const CollapsedLibGroupRow: FunctionComponent<CollapsedLibGroupRowProps> = ({
+  group,
+  onExpand,
+}: CollapsedLibGroupRowProps): ReactElement => {
+  const count: number = group.frames.length;
+  const firstFrame: StackFrame = group.frames[0]!.frame;
+  const lastFrame: StackFrame = group.frames[count - 1]!.frame;
 
   // Try to find a common path prefix
   const firstDir: string = firstFrame.fileName
-    ? firstFrame.fileName
-        .split("/")
-        .slice(0, -1)
-        .join("/")
+    ? firstFrame.fileName.split("/").slice(0, -1).join("/")
     : "";
   const lastDir: string = lastFrame.fileName
-    ? lastFrame.fileName
-        .split("/")
-        .slice(0, -1)
-        .join("/")
+    ? lastFrame.fileName.split("/").slice(0, -1).join("/")
     : "";
   const commonPackage: string =
     firstDir === lastDir ? shortenPath(firstDir) : "";
@@ -428,7 +414,7 @@ const CollapsedLibGroupRow: FunctionComponent<CollapsedLibGroupRowProps> = (
   return (
     <button
       className="w-full flex items-center gap-3 px-4 py-2 text-left cursor-pointer hover:bg-gray-50/50 border-l-2 border-l-transparent group"
-      onClick={groupProps.onExpand}
+      onClick={onExpand}
     >
       {/* Expand icon area */}
       <div className="w-7 h-5 rounded bg-gray-100 flex items-center justify-center flex-shrink-0">
@@ -449,8 +435,7 @@ const CollapsedLibGroupRow: FunctionComponent<CollapsedLibGroupRowProps> = (
         {count} library frame{count !== 1 ? "s" : ""}
         {commonPackage && (
           <span className="text-gray-300 ml-1">
-            in{" "}
-            <span className="font-mono not-italic">{commonPackage}</span>
+            in <span className="font-mono not-italic">{commonPackage}</span>
           </span>
         )}
       </span>
@@ -472,9 +457,13 @@ interface ViewModeToggleProps {
   libFrameCount: number;
 }
 
-const ViewModeToggle: FunctionComponent<ViewModeToggleProps> = (
-  toggleProps: ViewModeToggleProps,
-): ReactElement => {
+const ViewModeToggle: FunctionComponent<ViewModeToggleProps> = ({
+  viewMode,
+  onChangeMode,
+  totalFrames,
+  appFrameCount,
+  libFrameCount,
+}: ViewModeToggleProps): ReactElement => {
   interface ModeOption {
     mode: ViewMode;
     label: string;
@@ -485,17 +474,17 @@ const ViewModeToggle: FunctionComponent<ViewModeToggleProps> = (
     {
       mode: ViewMode.Smart,
       label: "Smart",
-      sublabel: `${toggleProps.appFrameCount} app + grouped lib`,
+      sublabel: `${appFrameCount} app + grouped lib`,
     },
     {
       mode: ViewMode.AppOnly,
       label: "App Only",
-      sublabel: `${toggleProps.appFrameCount} frames`,
+      sublabel: `${appFrameCount} frames`,
     },
     {
       mode: ViewMode.All,
       label: "All",
-      sublabel: `${toggleProps.totalFrames} frames`,
+      sublabel: `${totalFrames} frames`,
     },
   ];
 
@@ -504,9 +493,9 @@ const ViewModeToggle: FunctionComponent<ViewModeToggleProps> = (
       <span className="text-xs font-medium text-gray-500 mr-2">View:</span>
       <div className="flex rounded-lg border border-gray-200 overflow-hidden bg-white">
         {modes.map((opt: ModeOption): ReactElement => {
-          const isActive: boolean = toggleProps.viewMode === opt.mode;
+          const isActive: boolean = viewMode === opt.mode;
           const isDisabled: boolean =
-            opt.mode === ViewMode.AppOnly && toggleProps.appFrameCount === 0;
+            opt.mode === ViewMode.AppOnly && appFrameCount === 0;
 
           return (
             <Tooltip key={opt.mode} text={opt.sublabel}>
@@ -520,7 +509,7 @@ const ViewModeToggle: FunctionComponent<ViewModeToggleProps> = (
                 }`}
                 onClick={() => {
                   if (!isDisabled) {
-                    toggleProps.onChangeMode(opt.mode);
+                    onChangeMode(opt.mode);
                   }
                 }}
                 disabled={isDisabled}
@@ -534,22 +523,22 @@ const ViewModeToggle: FunctionComponent<ViewModeToggleProps> = (
 
       {/* Quick summary badges */}
       <div className="flex items-center gap-2 ml-auto">
-        {toggleProps.appFrameCount > 0 && (
+        {appFrameCount > 0 && (
           <span className="inline-flex items-center gap-1 text-[10px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
             <span
               className="w-1.5 h-1.5 rounded-full bg-green-500"
               aria-hidden="true"
             />
-            {toggleProps.appFrameCount} app
+            {appFrameCount} app
           </span>
         )}
-        {toggleProps.libFrameCount > 0 && (
+        {libFrameCount > 0 && (
           <span className="inline-flex items-center gap-1 text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
             <span
               className="w-1.5 h-1.5 rounded-full bg-gray-400"
               aria-hidden="true"
             />
-            {toggleProps.libFrameCount} lib
+            {libFrameCount} lib
           </span>
         )}
       </div>
@@ -564,13 +553,14 @@ interface RawStackTraceProps {
   isStandalone: boolean; // true when no parsed frames available
 }
 
-const RawStackTraceViewer: FunctionComponent<RawStackTraceProps> = (
-  rawProps: RawStackTraceProps,
-): ReactElement => {
+const RawStackTraceViewer: FunctionComponent<RawStackTraceProps> = ({
+  stackTrace,
+  isStandalone,
+}: RawStackTraceProps): ReactElement => {
   // Split into lines for line numbers
-  const lines: string[] = rawProps.stackTrace.split("\n");
+  const lines: string[] = stackTrace.split("\n");
 
-  if (rawProps.isStandalone) {
+  if (isStandalone) {
     return (
       <div className="rounded-lg border border-gray-800 bg-gray-900 overflow-hidden">
         {/* Header */}
@@ -585,7 +575,7 @@ const RawStackTraceViewer: FunctionComponent<RawStackTraceProps> = (
               Raw Stack Trace
             </span>
           </div>
-          <CopyableButton textToBeCopied={rawProps.stackTrace} />
+          <CopyableButton textToBeCopied={stackTrace} />
         </div>
         {/* Lines with line numbers */}
         <div className="overflow-x-auto">
@@ -593,8 +583,7 @@ const RawStackTraceViewer: FunctionComponent<RawStackTraceProps> = (
             <tbody>
               {lines.map((line: string, i: number): ReactElement => {
                 const isErrorLine: boolean =
-                  line.trimStart().startsWith("at ") === false &&
-                  i === 0;
+                  line.trimStart().startsWith("at ") === false && i === 0;
                 return (
                   <tr
                     key={i}
@@ -607,7 +596,9 @@ const RawStackTraceViewer: FunctionComponent<RawStackTraceProps> = (
                     </td>
                     <td
                       className={`pl-4 pr-4 py-0.5 whitespace-pre ${
-                        isErrorLine ? "text-red-300 font-medium" : "text-gray-300"
+                        isErrorLine
+                          ? "text-red-300 font-medium"
+                          : "text-gray-300"
                       }`}
                     >
                       {line || " "}
@@ -633,7 +624,7 @@ const RawStackTraceViewer: FunctionComponent<RawStackTraceProps> = (
             ({lines.length} lines)
           </span>
           <div className="ml-auto">
-            <CopyableButton textToBeCopied={rawProps.stackTrace} />
+            <CopyableButton textToBeCopied={stackTrace} />
           </div>
         </summary>
         <div className="mx-4 mb-4 rounded-lg border border-gray-800 bg-gray-900 overflow-hidden">
@@ -745,16 +736,14 @@ const StackFrameViewer: FunctionComponent<ComponentProps> = (
 
     if (viewMode === ViewMode.All) {
       // All frames, flat list
-      return frames.map(
-        (frame: StackFrame, index: number): DisplayItem => {
-          return {
-            kind: "frame",
-            frame: frame,
-            originalIndex: index,
-            isTopAppFrame: index === topAppFrameIndex,
-          } as DisplayFrame;
-        },
-      );
+      return frames.map((frame: StackFrame, index: number): DisplayItem => {
+        return {
+          kind: "frame",
+          frame: frame,
+          originalIndex: index,
+          isTopAppFrame: index === topAppFrameIndex,
+        } as DisplayFrame;
+      });
     }
 
     // Smart view: app frames shown, consecutive lib frames collapsed
@@ -818,10 +807,7 @@ const StackFrameViewer: FunctionComponent<ComponentProps> = (
   }, [frames, viewMode, topAppFrameIndex, expandedLibGroups]);
 
   return (
-    <Card
-      title="Stack Trace"
-      description={`${frames.length} frames traced`}
-    >
+    <Card title="Stack Trace" description={`${frames.length} frames traced`}>
       <div className="overflow-hidden">
         {/* View mode toggle bar */}
         {appFrameCount > 0 && libFrameCount > 0 && (

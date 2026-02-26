@@ -403,9 +403,12 @@ interface CategoryFilterProps {
   onClearFilters: () => void;
 }
 
-const CategoryFilterBar: FunctionComponent<CategoryFilterProps> = (
-  filterProps: CategoryFilterProps,
-): ReactElement => {
+const CategoryFilterBar: FunctionComponent<CategoryFilterProps> = ({
+  categoryCounts,
+  activeFilters,
+  onToggleFilter,
+  onClearFilters,
+}: CategoryFilterProps): ReactElement => {
   const allCategories: BreadcrumbCategory[] = [
     BreadcrumbCategory.Exception,
     BreadcrumbCategory.Error,
@@ -416,25 +419,25 @@ const CategoryFilterBar: FunctionComponent<CategoryFilterProps> = (
     BreadcrumbCategory.Event,
   ];
 
-  const hasFilters: boolean = filterProps.activeFilters.size > 0;
+  const hasFilters: boolean = activeFilters.size > 0;
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 px-5 py-3 border-b border-gray-100 bg-gray-50/50">
       <span className="text-xs font-medium text-gray-500 mr-1">Filter:</span>
       {allCategories
         .filter((cat: BreadcrumbCategory) => {
-          return (filterProps.categoryCounts.get(cat) || 0) > 0;
+          return (categoryCounts.get(cat) || 0) > 0;
         })
         .map((cat: BreadcrumbCategory): ReactElement => {
           const style: CategoryStyle = getCategoryStyle(cat);
-          const count: number = filterProps.categoryCounts.get(cat) || 0;
-          const isActive: boolean = filterProps.activeFilters.has(cat);
+          const count: number = categoryCounts.get(cat) || 0;
+          const isActive: boolean = activeFilters.has(cat);
 
           return (
             <button
               key={cat}
               onClick={() => {
-                return filterProps.onToggleFilter(cat);
+                return onToggleFilter(cat);
               }}
               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${
                 isActive
@@ -452,7 +455,7 @@ const CategoryFilterBar: FunctionComponent<CategoryFilterProps> = (
 
       {hasFilters && (
         <button
-          onClick={filterProps.onClearFilters}
+          onClick={onClearFilters}
           className="ml-2 text-xs text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
         >
           Clear
@@ -468,10 +471,10 @@ interface AttributeTableProps {
   attributes: Array<{ key: string; value: string }>;
 }
 
-const AttributeTable: FunctionComponent<AttributeTableProps> = (
-  tableProps: AttributeTableProps,
-): ReactElement => {
-  if (tableProps.attributes.length === 0) {
+const AttributeTable: FunctionComponent<AttributeTableProps> = ({
+  attributes,
+}: AttributeTableProps): ReactElement => {
+  if (attributes.length === 0) {
     return (
       <div className="text-xs text-gray-400 italic py-2 px-3">
         No attributes.
@@ -493,11 +496,8 @@ const AttributeTable: FunctionComponent<AttributeTableProps> = (
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {tableProps.attributes.map(
-            (
-              attr: { key: string; value: string },
-              i: number,
-            ): ReactElement => {
+          {attributes.map(
+            (attr: { key: string; value: string }, i: number): ReactElement => {
               return (
                 <tr key={i} className="hover:bg-gray-50/50">
                   <td className="px-3 py-1.5 font-mono text-gray-500 align-top whitespace-nowrap">
@@ -526,10 +526,13 @@ interface TimelineRowProps {
   exceptionTime: Date | undefined;
 }
 
-const TimelineRow: FunctionComponent<TimelineRowProps> = (
-  rowProps: TimelineRowProps,
-): ReactElement => {
-  const { group, isExpanded, isLast, exceptionTime } = rowProps;
+const TimelineRow: FunctionComponent<TimelineRowProps> = ({
+  group,
+  isExpanded,
+  onToggle,
+  isLast,
+  exceptionTime,
+}: TimelineRowProps): ReactElement => {
   const style: CategoryStyle = getCategoryStyle(group.category);
   const isException: boolean =
     group.category === BreadcrumbCategory.Exception ||
@@ -547,7 +550,7 @@ const TimelineRow: FunctionComponent<TimelineRowProps> = (
         } ${isClickable ? "cursor-pointer" : ""}`}
         onClick={() => {
           if (isClickable) {
-            rowProps.onToggle();
+            onToggle();
           }
         }}
       >
@@ -599,7 +602,11 @@ const TimelineRow: FunctionComponent<TimelineRowProps> = (
 
           {/* Category + Count badge */}
           <div className="flex-shrink-0 flex items-center gap-1.5">
-            <Pill text={group.category} color={style.color} size={PillSize.Small} />
+            <Pill
+              text={group.category}
+              color={style.color}
+              size={PillSize.Small}
+            />
             {group.count > 1 && (
               <span className="inline-flex items-center justify-center px-1.5 py-0 rounded-full text-[10px] font-bold bg-gray-200 text-gray-700 min-w-[20px]">
                 ×{group.count}
@@ -611,13 +618,17 @@ const TimelineRow: FunctionComponent<TimelineRowProps> = (
           <div className="flex-1 min-w-0">
             <div
               className={`text-sm font-mono truncate ${
-                isException ? "font-semibold " + style.textClass : "text-gray-800"
+                isException
+                  ? "font-semibold " + style.textClass
+                  : "text-gray-800"
               }`}
             >
               {group.summary}
             </div>
             {group.detail && !isExpanded && (
-              <div className={`text-xs mt-0.5 ${isException ? "text-red-600/70" : "text-gray-400"}`}>
+              <div
+                className={`text-xs mt-0.5 ${isException ? "text-red-600/70" : "text-gray-400"}`}
+              >
                 {group.detail}
               </div>
             )}
@@ -625,9 +636,11 @@ const TimelineRow: FunctionComponent<TimelineRowProps> = (
 
           {/* Timestamp */}
           <Tooltip text={formatAbsoluteTime(group.firstTime)}>
-            <div className={`flex-shrink-0 text-xs font-mono whitespace-nowrap ${
-              isException ? "text-red-400" : "text-gray-400"
-            }`}>
+            <div
+              className={`flex-shrink-0 text-xs font-mono whitespace-nowrap ${
+                isException ? "text-red-400" : "text-gray-400"
+              }`}
+            >
               {formatRelativeTime(group.firstTime, exceptionTime)}
               {group.count > 1 && group.firstTime !== group.lastTime && (
                 <span className="text-gray-300 ml-1">
@@ -752,12 +765,10 @@ const BreadcrumbTimeline: FunctionComponent<ComponentProps> = (
   }, [sortedEvents, activeFilters]);
 
   // Group consecutive identical events
-  const groupedEvents: GroupedBreadcrumbEvent[] = useMemo(
-    (): GroupedBreadcrumbEvent[] => {
+  const groupedEvents: GroupedBreadcrumbEvent[] =
+    useMemo((): GroupedBreadcrumbEvent[] => {
       return groupConsecutiveEvents(filteredEvents);
-    },
-    [filteredEvents],
-  );
+    }, [filteredEvents]);
 
   // Has multiple categories (show filter bar only if useful)
   const hasMultipleCategories: boolean = categoryCounts.size > 1;
@@ -792,7 +803,11 @@ const BreadcrumbTimeline: FunctionComponent<ComponentProps> = (
       >
         <div className="flex flex-col items-center justify-center py-12 px-4">
           <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-            <Icon icon={IconProp.QueueList} size={SizeProp.Regular} className="text-gray-400" />
+            <Icon
+              icon={IconProp.QueueList}
+              size={SizeProp.Regular}
+              className="text-gray-400"
+            />
           </div>
           <p className="text-sm font-medium text-gray-500">No breadcrumbs</p>
           <p className="text-xs text-gray-400 mt-1">
@@ -804,10 +819,7 @@ const BreadcrumbTimeline: FunctionComponent<ComponentProps> = (
   }
 
   return (
-    <Card
-      title="Breadcrumbs"
-      description={totalEventsLabel}
-    >
+    <Card title="Breadcrumbs" description={totalEventsLabel}>
       <div className="overflow-hidden">
         {/* Category filter bar */}
         {hasMultipleCategories && (
@@ -850,9 +862,7 @@ const BreadcrumbTimeline: FunctionComponent<ComponentProps> = (
                   group={group}
                   isExpanded={expandedIndex === index}
                   onToggle={() => {
-                    setExpandedIndex(
-                      expandedIndex === index ? null : index,
-                    );
+                    setExpandedIndex(expandedIndex === index ? null : index);
                   }}
                   isLast={index === groupedEvents.length - 1}
                   exceptionTime={props.exceptionTime}

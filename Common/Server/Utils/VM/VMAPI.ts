@@ -209,7 +209,8 @@ export default class VMUtil {
       if (matchEnd === -1 || bodyEnd === -1) {
         // Unmatched {{#each}} — remove it to prevent infinite loop
         result =
-          result.slice(0, blockStart) + result.slice(blockStart + openMatch[0]!.length);
+          result.slice(0, blockStart) +
+          result.slice(blockStart + openMatch[0]!.length);
         continue;
       }
 
@@ -232,15 +233,14 @@ export default class VMUtil {
         let iterationBody: string = loopBody;
 
         // Replace {{@index}} with the current index
-        iterationBody = iterationBody.replace(
-          /\{\{@index\}\}/g,
-          i.toString(),
-        );
+        iterationBody = iterationBody.replace(/\{\{@index\}\}/g, i.toString());
 
         if (typeof element === "object" && element !== null) {
-          // Merge element properties into a scoped storageMap so that:
-          // 1. Element properties can be accessed directly (e.g., {{status}})
-          // 2. Parent storageMap properties are still accessible (e.g., {{requestBody.receiver}})
+          /*
+           * Merge element properties into a scoped storageMap so that:
+           * 1. Element properties can be accessed directly (e.g., {{status}})
+           * 2. Parent storageMap properties are still accessible (e.g., {{requestBody.receiver}})
+           */
           const scopedStorageMap: JSONObject = {
             ...storageMap,
             ...(element as JSONObject),
@@ -264,9 +264,7 @@ export default class VMUtil {
           // For primitive array elements, replace {{this}} with the value
           iterationBody = iterationBody.replace(
             /\{\{this\}\}/g,
-            isJSON
-              ? VMUtil.serializeValueForJSON(`${element}`)
-              : `${element}`,
+            isJSON ? VMUtil.serializeValueForJSON(`${element}`) : `${element}`,
           );
         }
 
@@ -294,8 +292,7 @@ export default class VMUtil {
     body: string,
     isJSON: boolean | undefined,
   ): string {
-    const variableRegex: RegExp =
-      /\{\{((?!#each\b|\/each\b|@index\b).*?)\}\}/g;
+    const variableRegex: RegExp = /\{\{((?!#each\b|\/each\b|@index\b).*?)\}\}/g;
     let match: RegExpExecArray | null = null;
     const variables: Array<string> = [];
 
