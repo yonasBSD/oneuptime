@@ -188,6 +188,92 @@ Error message: {{responseBody.error.details.message}}
 Server location: {{sslCertificate.locality}} {{sslCertificate.country}}
 ```
 
+### Looping Over Arrays with `{{#each}}`
+
+You can iterate over arrays using the `{{#each path}}...{{/each}}` block syntax. This is useful when the data contains a list of items and you want to include each one in your incident or alert description.
+
+**Syntax:**
+```
+{{#each arrayPath}}
+  ...body using {{property}} from each element...
+{{/each}}
+```
+
+Inside the loop body:
+- `{{propertyName}}` resolves relative to the current array element
+- `{{nested.property}}` dot-notation access works on the current element
+- `{{@index}}` resolves to the 0-based index of the current iteration
+- `{{this}}` resolves to the current element value (useful for arrays of strings/numbers)
+- Variables not found on the current element fall back to the parent storage map
+
+**Example — Incoming Request with array of alerts (e.g., Grafana webhooks):**
+
+If your incoming request body looks like:
+```json
+{
+  "status": "firing",
+  "alerts": [
+    { "status": "firing", "labels": { "label": "Coralpay" } },
+    { "status": "firing", "labels": { "label": "capitecpay" } },
+    { "status": "resolved", "labels": { "label": "capricorn" } }
+  ]
+}
+```
+
+You can write a template like:
+```
+Alert Labels:
+{{#each requestBody.alerts}}
+- {{labels.label}} ({{status}})
+{{/each}}
+```
+
+Which produces:
+```
+Alert Labels:
+- Coralpay (firing)
+- capitecpay (firing)
+- capricorn (resolved)
+```
+
+**Example — Server disk metrics:**
+```
+Disk Usage:
+{{#each diskMetrics}}
+- {{diskPath}}: {{usagePercent}}% used
+{{/each}}
+```
+
+**Example — Using `{{@index}}`:**
+```
+Processes:
+{{#each processes}}
+{{@index}}. {{name}} (PID: {{pid}})
+{{/each}}
+```
+
+**Example — Primitive array with `{{this}}`:**
+```
+Log messages:
+{{#each logMessages}}
+- {{this}}
+{{/each}}
+```
+
+**Example — Nested loops:**
+
+You can nest `{{#each}}` blocks for multi-level arrays:
+```
+{{#each requestBody.groups}}
+Group: {{name}}
+{{#each members}}
+  - {{id}}: {{role}}
+{{/each}}
+{{/each}}
+```
+
+> **Note**: If the path does not resolve to an array, the entire `{{#each}}...{{/each}}` block is removed from the output. Empty arrays produce no output for the block.
+
 
 ## Examples
 
@@ -262,6 +348,59 @@ Response Time: **{{responseTimeInMs}}ms**
 System Uptime: {{sysUpTime}}
 System Name: {{sysName}}
 First OID Value: {{oidResponses[0].value}}
+```
+
+### Incoming Request with Array Loop (Grafana Webhook)
+
+Title:
+```
+[{{requestBody.status}}] {{requestBody.receiver}}
+```
+
+Description:
+```
+### Alerts from {{requestBody.receiver}}
+
+{{#each requestBody.alerts}}
+**Alert {{@index}}**: {{labels.alertname}}
+- Label: {{labels.label}}
+- Status: {{status}}
+- Values: {{valueString}}
+- Source: {{generatorURL}}
+{{/each}}
+```
+
+### Server Monitor with Disk Loop
+
+Description:
+```
+### Server Alert: {{hostname}}
+CPU Usage: **{{cpuUsagePercent}}%**
+Memory Usage: **{{memoryUsagePercent}}%**
+
+**Disk Usage:**
+{{#each diskMetrics}}
+- {{diskPath}}: {{usagePercent}}% used ({{freePercent}}% free)
+{{/each}}
+
+**Running Processes:**
+{{#each processes}}
+- [{{pid}}] {{name}}: {{command}}
+{{/each}}
+```
+
+### SNMP Monitor with OID Loop
+
+Description:
+```
+### SNMP Device Status
+Online: {{isOnline}}
+Response: {{responseTimeInMs}}ms
+
+**OID Values:**
+{{#each oidResponses}}
+- {{name}} ({{oid}}): {{value}}
+{{/each}}
 ```
 
 
