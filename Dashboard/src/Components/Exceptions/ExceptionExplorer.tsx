@@ -6,7 +6,7 @@ import BreadcrumbTimeline, {
   BreadcrumbEvent,
 } from "./BreadcrumbTimeline";
 import ExceptionInstance from "Common/Models/AnalyticsModels/ExceptionInstance";
-import Span from "Common/Models/AnalyticsModels/Span";
+import Span, { SpanEvent } from "Common/Models/AnalyticsModels/Span";
 import ObjectID from "Common/Types/ObjectID";
 import PageLoader from "Common/UI/Components/Loader/PageLoader";
 import ErrorMessage from "Common/UI/Components/ErrorMessage/ErrorMessage";
@@ -177,23 +177,15 @@ const ExceptionExplorer: FunctionComponent<ComponentProps> = (
                   Array.isArray(span.events)
                 ) {
                   for (const event of span.events) {
-                    const eventObj = event as {
-                      name?: string;
-                      time?: string;
-                      timeUnixNano?: string;
-                      attributes?: Record<string, unknown>;
-                    };
+                    const spanEvent: SpanEvent = event as SpanEvent;
                     events.push({
-                      name: (eventObj.name as string) || "",
-                      time: new Date(
-                        (eventObj.time as string) || new Date().toISOString(),
-                      ),
-                      timeUnixNano: parseInt(
-                        (eventObj.timeUnixNano as string) || "0",
-                        10,
-                      ),
+                      name: spanEvent.name || "",
+                      time: spanEvent.time instanceof Date
+                        ? spanEvent.time
+                        : new Date(spanEvent.time || new Date().toISOString()),
+                      timeUnixNano: spanEvent.timeUnixNano || 0,
                       attributes:
-                        (eventObj.attributes as Record<string, unknown>) || {},
+                        (spanEvent.attributes as JSONObject) || {},
                     });
                   }
                 }
@@ -540,7 +532,9 @@ const ExceptionExplorer: FunctionComponent<ComponentProps> = (
       {telemetryException.stackTrace && (
         <StackFrameViewer
           stackTrace={telemetryException.stackTrace}
-          parsedFrames={latestInstance?.parsedFrames}
+          {...(latestInstance?.parsedFrames
+            ? { parsedFrames: latestInstance.parsedFrames }
+            : {})}
         />
       )}
 
@@ -548,13 +542,11 @@ const ExceptionExplorer: FunctionComponent<ComponentProps> = (
       {breadcrumbEvents.length > 0 && (
         <BreadcrumbTimeline
           events={breadcrumbEvents}
-          exceptionTime={
-            latestInstance?.time
-              ? new Date(latestInstance.time)
-              : telemetryException.lastSeenAt
-                ? new Date(telemetryException.lastSeenAt)
-                : undefined
-          }
+          {...(latestInstance?.time
+            ? { exceptionTime: new Date(latestInstance.time) }
+            : telemetryException.lastSeenAt
+              ? { exceptionTime: new Date(telemetryException.lastSeenAt) }
+              : {})}
         />
       )}
 
