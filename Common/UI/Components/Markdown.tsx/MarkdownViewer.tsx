@@ -458,11 +458,7 @@ const MarkdownViewer: FunctionComponent<ComponentProps> = (
                 : "text-sm px-2 py-1 bg-gray-200 rounded text-gray-900 font-mono";
 
             return match ? (
-              <CodeBlock
-                language={match[1]!}
-                content={content}
-                rest={rest}
-              />
+              <CodeBlock language={match[1]!} content={content} rest={rest} />
             ) : (
               <code className={codeClassName} {...rest}>
                 {children}
