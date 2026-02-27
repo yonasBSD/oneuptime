@@ -327,7 +327,16 @@ class SyntheticMonitorWorkerPool {
 
     this.clearWorkerPending(worker);
     worker.busy = false;
-    this.startIdleTimer(worker);
+
+    // Retire worker if it has exceeded execution limit (same check as resolveWorkerExecution)
+    if (worker.executionCount >= MAX_EXECUTIONS_PER_WORKER) {
+      logger.debug(
+        `SyntheticMonitorWorkerPool: retiring worker after ${worker.executionCount} executions (error path)`,
+      );
+      this.retireWorker(worker);
+    } else {
+      this.startIdleTimer(worker);
+    }
 
     if (reject) {
       reject(error);

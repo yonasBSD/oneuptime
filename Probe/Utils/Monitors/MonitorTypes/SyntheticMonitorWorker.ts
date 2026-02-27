@@ -584,6 +584,12 @@ process.on(
                 "Synthetic monitor worker safety timeout reached. " +
                 "The script or browser cleanup took too long.",
             });
+            // Exit so the pool doesn't reuse this worker while runExecution
+            // is still in progress (would cause two concurrent executions
+            // sharing the same browser).
+            setTimeout(() => {
+              process.exit(1);
+            }, 5000); // give IPC 5s to flush the error message
           },
           executeMsg.config.timeout + safetyMarginMs,
         );
