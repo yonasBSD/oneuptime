@@ -353,6 +353,33 @@ class User extends UserModel {
 
   @ColumnAccessControl({
     create: [],
+    read: [],
+    update: [],
+  })
+  @TableColumn({ type: TableColumnType.ShortText })
+  @Column({
+    type: ColumnType.ShortText,
+    length: ColumnLength.ShortText,
+    nullable: true,
+    unique: false,
+  })
+  public webauthnChallenge?: string = undefined;
+
+  @ColumnAccessControl({
+    create: [],
+    read: [],
+    update: [],
+  })
+  @TableColumn({ type: TableColumnType.Date })
+  @Column({
+    type: ColumnType.Date,
+    nullable: true,
+    unique: false,
+  })
+  public webauthnChallengeExpiresAt?: Date = undefined;
+
+  @ColumnAccessControl({
+    create: [],
     read: [Permission.CurrentUser],
     update: [Permission.CurrentUser],
   })

@@ -213,7 +213,6 @@ const LoginPage: () => JSX.Element = () => {
           data: {
             data: {
               ...initialValues,
-              challenge: data.challenge,
               credential: {
                 id: credential.id,
                 rawId: Base64.uint8ArrayToBase64Url(

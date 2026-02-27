@@ -1,12 +1,12 @@
 import { PROBE_SYNTHETIC_MONITOR_SCRIPT_TIMEOUT_IN_MS } from "../../../Config";
 import ProxyConfig from "../../ProxyConfig";
+import SyntheticMonitorSemaphore from "../../SyntheticMonitorSemaphore";
+import SyntheticMonitorWorkerPool from "../../SyntheticMonitorWorkerPool";
 import BrowserType from "Common/Types/Monitor/SyntheticMonitors/BrowserType";
 import ScreenSizeType from "Common/Types/Monitor/SyntheticMonitors/ScreenSizeType";
 import SyntheticMonitorResponse from "Common/Types/Monitor/SyntheticMonitors/SyntheticMonitorResponse";
 import ObjectID from "Common/Types/ObjectID";
 import logger from "Common/Server/Utils/Logger";
-import { ChildProcess, fork } from "child_process";
-import path from "path";
 
 export interface SyntheticMonitorOptions {
   monitorId?: ObjectID | undefined;
@@ -56,6 +56,7 @@ export default class SyntheticMonitor {
             browserType: browserType,
             screenSizeType: screenSizeType,
             retryCountOnError: options.retryCountOnError || 0,
+            monitorId: options.monitorId,
           });
 
         if (result) {
@@ -75,8 +76,58 @@ export default class SyntheticMonitor {
     screenSizeType: ScreenSizeType;
     retryCountOnError: number;
     currentRetry?: number;
+    monitorId?: ObjectID | undefined;
   }): Promise<SyntheticMonitorResponse | null> {
-    const currentRetry: number = options.currentRetry || 0;
+    const maxRetries: number = options.retryCountOnError;
+    const monitorIdStr: string | undefined =
+      options.monitorId?.toString() || undefined;
+
+    // Acquire semaphore once for all retries so retries reuse the same slot
+    let acquired: boolean = false;
+
+    try {
+      acquired = await SyntheticMonitorSemaphore.acquire(monitorIdStr);
+    } catch (err: unknown) {
+      logger.error(
+        `Synthetic monitor semaphore acquire failed: ${(err as Error)?.message}`,
+      );
+      return {
+        logMessages: [],
+        scriptError: (err as Error)?.message || (err as Error).toString(),
+        result: undefined,
+        screenshots: {},
+        executionTimeInMS: 0,
+        browserType: options.browserType,
+        screenSizeType: options.screenSizeType,
+      };
+    }
+
+    if (!acquired) {
+      // This monitor is already running or queued — skip duplicate execution
+      return null;
+    }
+
+    try {
+      return await this.executeWithRetryInner({
+        script: options.script,
+        browserType: options.browserType,
+        screenSizeType: options.screenSizeType,
+        retryCountOnError: maxRetries,
+        currentRetry: options.currentRetry || 0,
+      });
+    } finally {
+      SyntheticMonitorSemaphore.release(monitorIdStr);
+    }
+  }
+
+  private static async executeWithRetryInner(options: {
+    script: string;
+    browserType: BrowserType;
+    screenSizeType: ScreenSizeType;
+    retryCountOnError: number;
+    currentRetry: number;
+  }): Promise<SyntheticMonitorResponse | null> {
+    const currentRetry: number = options.currentRetry;
     const maxRetries: number = options.retryCountOnError;
 
     const result: SyntheticMonitorResponse | null =
@@ -97,7 +148,7 @@ export default class SyntheticMonitor {
         setTimeout(resolve, 1000);
       });
 
-      return this.executeWithRetry({
+      return this.executeWithRetryInner({
         script: options.script,
         browserType: options.browserType,
         screenSizeType: options.screenSizeType,
@@ -107,36 +158,6 @@ export default class SyntheticMonitor {
     }
 
     return result;
-  }
-
-  private static getSanitizedEnv(): Record<string, string> {
-    /*
-     * Only pass safe environment variables to the worker process.
-     * Explicitly exclude all secrets (DATABASE_PASSWORD, REDIS_PASSWORD,
-     * CLICKHOUSE_PASSWORD, ONEUPTIME_SECRET, ENCRYPTION_SECRET, BILLING_PRIVATE_KEY, etc.)
-     */
-    const safeKeys: string[] = [
-      "PATH",
-      "HOME",
-      "NODE_ENV",
-      "PLAYWRIGHT_BROWSERS_PATH",
-      "HTTP_PROXY_URL",
-      "http_proxy",
-      "HTTPS_PROXY_URL",
-      "https_proxy",
-      "NO_PROXY",
-      "no_proxy",
-    ];
-
-    const env: Record<string, string> = {};
-
-    for (const key of safeKeys) {
-      if (process.env[key]) {
-        env[key] = process.env[key]!;
-      }
-    }
-
-    return env;
   }
 
   private static getProxyConfig(): WorkerConfig["proxy"] | undefined {
@@ -203,10 +224,8 @@ export default class SyntheticMonitor {
     };
 
     try {
-      const workerResult: WorkerResult = await this.forkWorker(
-        workerConfig,
-        timeout,
-      );
+      const workerResult: WorkerResult =
+        await SyntheticMonitorWorkerPool.execute(workerConfig, timeout);
 
       scriptResult.logMessages = workerResult.logMessages;
       scriptResult.scriptError = workerResult.scriptError;
@@ -220,148 +239,5 @@ export default class SyntheticMonitor {
     }
 
     return scriptResult;
-  }
-
-  private static async forkWorker(
-    config: WorkerConfig,
-    timeout: number,
-  ): Promise<WorkerResult> {
-    return new Promise(
-      (
-        resolve: (value: WorkerResult) => void,
-        reject: (reason: Error) => void,
-      ) => {
-        const workerPath: string = path.resolve(
-          __dirname,
-          "SyntheticMonitorWorker",
-        );
-
-        const child: ChildProcess = fork(workerPath, [], {
-          env: this.getSanitizedEnv(),
-          execArgv: [...process.execArgv, "--max-old-space-size=256"], // preserve parent execArgv (e.g. ts-node/register) and limit worker heap
-          timeout: timeout + 60000, // fork-level timeout: generous margin since the worker handles its own script timeout
-          stdio: ["pipe", "pipe", "pipe", "ipc"],
-        });
-
-        let resolved: boolean = false;
-        let stderrOutput: string = "";
-
-        // Capture child stderr for debugging worker crashes
-        if (child.stderr) {
-          child.stderr.on("data", (data: Buffer) => {
-            stderrOutput += data.toString();
-          });
-        }
-
-        /**
-         * Ensure the child process is always killed to prevent leaked processes.
-         * The worker calls process.exit() on itself, but if that hangs (e.g.
-         * browser cleanup holding a ref) the child would linger until the OS
-         * reclaims it.  We send SIGTERM first to allow graceful shutdown, then
-         * schedule a SIGKILL as a guaranteed cleanup.
-         */
-        const ensureChildKilled: () => void = (): void => {
-          try {
-            if (child.exitCode === null && child.signalCode === null) {
-              // Child is still running — ask it to exit gracefully
-              child.kill("SIGTERM");
-
-              // If it doesn't exit within 5s, force-kill
-              const forceKillTimer: ReturnType<typeof setTimeout> =
-                global.setTimeout(() => {
-                  try {
-                    if (child.exitCode === null && child.signalCode === null) {
-                      child.kill("SIGKILL");
-                    }
-                  } catch {
-                    // ignore — process may have already exited
-                  }
-                }, 5000);
-
-              // Don't let this timer keep the parent process alive
-              if (forceKillTimer.unref) {
-                forceKillTimer.unref();
-              }
-            }
-          } catch {
-            // ignore — process may have already exited
-          }
-        };
-
-        // Explicit kill timer as final safety net (well beyond the worker's own safety timer)
-        const killTimer: ReturnType<typeof setTimeout> = global.setTimeout(
-          () => {
-            if (!resolved) {
-              resolved = true;
-              try {
-                child.kill("SIGKILL");
-              } catch {
-                // ignore — process may have already exited
-              }
-              reject(
-                new Error("Synthetic monitor worker killed after timeout"),
-              );
-            }
-          },
-          timeout + 120000, // kill after script timeout + 120s (last resort)
-        );
-
-        child.on("message", (result: WorkerResult) => {
-          if (!resolved) {
-            resolved = true;
-            global.clearTimeout(killTimer);
-            // Kill the child in case it hangs during its own cleanup
-            ensureChildKilled();
-            resolve(result);
-          }
-        });
-
-        child.on("error", (err: Error) => {
-          if (!resolved) {
-            resolved = true;
-            global.clearTimeout(killTimer);
-            // Kill the child — it errored but may still be running
-            ensureChildKilled();
-            reject(err);
-          }
-        });
-
-        child.on("exit", (exitCode: number | null, signal: string | null) => {
-          if (!resolved) {
-            resolved = true;
-            global.clearTimeout(killTimer);
-
-            const stderrInfo: string = stderrOutput.trim()
-              ? `: ${stderrOutput.trim().substring(0, 500)}`
-              : "";
-
-            if (exitCode === null) {
-              // Process was killed by a signal (OOM, resource limits, or fork timeout)
-              const signalInfo: string = signal ? ` (signal: ${signal})` : "";
-              reject(
-                new Error(
-                  `Synthetic monitor worker was terminated by the system${signalInfo}. This is usually caused by high memory usage or resource limits in the container${stderrInfo}`,
-                ),
-              );
-            } else if (exitCode !== 0) {
-              reject(
-                new Error(
-                  `Synthetic monitor worker exited with code ${exitCode}${stderrInfo}`,
-                ),
-              );
-            } else {
-              reject(
-                new Error(
-                  `Synthetic monitor worker exited without sending results${stderrInfo}`,
-                ),
-              );
-            }
-          }
-        });
-
-        // Send config to worker via IPC
-        child.send(config);
-      },
-    );
   }
 }

@@ -19,6 +19,9 @@ import ObjectID from "../../Types/ObjectID";
 import DatabaseCommonInteractionProps from "../../Types/BaseDatabase/DatabaseCommonInteractionProps";
 import UserTotpAuth from "../../Models/DatabaseModels/UserTotpAuth";
 import UserTotpAuthService from "./UserTotpAuthService";
+import OneUptimeDate from "../../Types/Date";
+
+const WEBAUTHN_CHALLENGE_TTL_MINUTES: number = 5;
 
 export class Service extends DatabaseService<Model> {
   public constructor() {
@@ -102,6 +105,21 @@ export class Service extends DatabaseService<Model> {
       );
     }
 
+    // Store the challenge server-side so verification uses a trusted value
+    await UserService.updateOneById({
+      id: data.userId,
+      data: {
+        webauthnChallenge: options.challenge,
+        webauthnChallengeExpiresAt: OneUptimeDate.addRemoveMinutes(
+          OneUptimeDate.getCurrentDate(),
+          WEBAUTHN_CHALLENGE_TTL_MINUTES,
+        ),
+      },
+      props: {
+        isRoot: true,
+      },
+    });
+
     return {
       options: options as any,
       challenge: options.challenge,
@@ -110,16 +128,24 @@ export class Service extends DatabaseService<Model> {
 
   @CaptureSpan()
   public async verifyRegistration(data: {
-    challenge: string;
     credential: any;
     name: string;
     props: DatabaseCommonInteractionProps;
   }): Promise<void> {
+    if (!data.props.userId) {
+      throw new BadDataException("User ID not found in request");
+    }
+
+    // Retrieve the challenge from the server-side store
+    const storedChallenge: string = await this.getAndClearStoredChallenge(
+      data.props.userId,
+    );
+
     const expectedOrigin: string = `${HttpProtocol}${Host.toString()}`;
 
     const verification: any = await verifyRegistrationResponse({
       response: data.credential,
-      expectedChallenge: data.challenge,
+      expectedChallenge: storedChallenge,
       expectedOrigin: expectedOrigin,
       expectedRPID: Host.toString(),
     });
@@ -132,10 +158,6 @@ export class Service extends DatabaseService<Model> {
 
     if (!registrationInfo) {
       throw new BadDataException("Registration info not found");
-    }
-
-    if (!data.props.userId) {
-      throw new BadDataException("User ID not found in request");
     }
 
     // Save the credential
@@ -213,6 +235,21 @@ export class Service extends DatabaseService<Model> {
     options.challenge = Buffer.from(options.challenge).toString("base64url");
     // allowCredentials id is already base64url string
 
+    // Store the challenge server-side so verification uses a trusted value
+    await UserService.updateOneById({
+      id: user.id!,
+      data: {
+        webauthnChallenge: options.challenge,
+        webauthnChallengeExpiresAt: OneUptimeDate.addRemoveMinutes(
+          OneUptimeDate.getCurrentDate(),
+          WEBAUTHN_CHALLENGE_TTL_MINUTES,
+        ),
+      },
+      props: {
+        isRoot: true,
+      },
+    });
+
     return {
       options: options as any,
       challenge: options.challenge,
@@ -223,9 +260,13 @@ export class Service extends DatabaseService<Model> {
   @CaptureSpan()
   public async verifyAuthentication(data: {
     userId: string;
-    challenge: string;
     credential: any;
   }): Promise<User> {
+    // Retrieve the challenge from the server-side store
+    const storedChallenge: string = await this.getAndClearStoredChallenge(
+      new ObjectID(data.userId),
+    );
+
     const user: User | null = await UserService.findOneById({
       id: new ObjectID(data.userId),
       select: {
@@ -267,7 +308,7 @@ export class Service extends DatabaseService<Model> {
 
     const verification: any = await verifyAuthenticationResponse({
       response: data.credential,
-      expectedChallenge: data.challenge,
+      expectedChallenge: storedChallenge,
       expectedOrigin: expectedOrigin,
       expectedRPID: Host.toString(),
       credential: {
@@ -293,6 +334,75 @@ export class Service extends DatabaseService<Model> {
     });
 
     return user;
+  }
+
+  /**
+   * Retrieves the stored WebAuthn challenge for the given user,
+   * validates it has not expired, and clears it so it cannot be reused.
+   */
+  private async getAndClearStoredChallenge(
+    userId: ObjectID,
+  ): Promise<string> {
+    const user: User | null = await UserService.findOneById({
+      id: userId,
+      select: {
+        webauthnChallenge: true,
+        webauthnChallengeExpiresAt: true,
+      },
+      props: {
+        isRoot: true,
+      },
+    });
+
+    if (!user) {
+      throw new BadDataException("User not found");
+    }
+
+    if (!user.webauthnChallenge || !user.webauthnChallengeExpiresAt) {
+      throw new BadDataException(
+        "No pending WebAuthn challenge found. Please initiate the WebAuthn flow again.",
+      );
+    }
+
+    // Check expiry
+    if (
+      OneUptimeDate.isBefore(
+        user.webauthnChallengeExpiresAt,
+        OneUptimeDate.getCurrentDate(),
+      )
+    ) {
+      // Clear the expired challenge
+      await UserService.updateOneById({
+        id: userId,
+        data: {
+          webauthnChallenge: (null as any),
+          webauthnChallengeExpiresAt: (null as any),
+        },
+        props: {
+          isRoot: true,
+        },
+      });
+
+      throw new BadDataException(
+        "WebAuthn challenge has expired. Please initiate the WebAuthn flow again.",
+      );
+    }
+
+    const challenge: string = user.webauthnChallenge;
+
+    // Clear the challenge immediately so it cannot be reused (one-time use)
+    await UserService.updateOneById({
+      id: userId,
+      data: {
+        webauthnChallenge: (null as any),
+        webauthnChallengeExpiresAt: (null as any),
+      },
+      props: {
+        isRoot: true,
+      },
+    });
+
+    return challenge;
   }
 
   @CaptureSpan()
