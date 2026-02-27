@@ -11,6 +11,7 @@ interface Waiter {
 const MEMORY_BUFFER_BYTES: number = 256 * 1024 * 1024; // 256 MB reserved for probe + OS
 const MEMORY_PER_MONITOR_BYTES: number = 250 * 1024 * 1024; // ~250 MB per fork (Node + Playwright)
 const ACQUIRE_TIMEOUT_MS: number = 5 * 60 * 1000; // 5 minutes
+const MAX_QUEUE_DEPTH: number = 20; // max waiters in queue before rejecting
 
 class SyntheticMonitorSemaphore {
   private running: number = 0;
@@ -51,6 +52,17 @@ class SyntheticMonitorSemaphore {
       return true;
     }
 
+    // Reject fast if the queue is already full — avoids a guaranteed 5-minute timeout
+    if (this.queue.length >= MAX_QUEUE_DEPTH) {
+      if (monitorId) {
+        this.activeMonitorIds.delete(monitorId);
+      }
+      throw new Error(
+        `SyntheticMonitorSemaphore: queue is full (${MAX_QUEUE_DEPTH} waiters). ` +
+          `Try again later or reduce synthetic monitor concurrency.`,
+      );
+    }
+
     logger.debug(
       `SyntheticMonitorSemaphore: all ${maxSlots} slots in use (${this.queue.length} already queued), waiting...`,
     );
@@ -85,17 +97,22 @@ class SyntheticMonitorSemaphore {
       this.activeMonitorIds.delete(monitorId);
     }
 
-    // Re-check available memory to decide if we can wake a waiter
+    // Re-check available memory and wake as many waiters as slots allow
     const maxSlots: number = this.calculateMaxSlots();
+    let woken: number = 0;
 
-    if (this.queue.length > 0 && this.running < maxSlots) {
+    while (this.queue.length > 0 && this.running < maxSlots) {
       const next: Waiter = this.queue.shift()!;
       clearTimeout(next.timer);
       this.running++;
-      logger.debug(
-        `SyntheticMonitorSemaphore: woke queued waiter (${this.running}/${maxSlots} active, ${this.queue.length} still queued, freemem=${Math.round(os.freemem() / 1024 / 1024)}MB)`,
-      );
+      woken++;
       next.resolve(true);
+    }
+
+    if (woken > 0) {
+      logger.debug(
+        `SyntheticMonitorSemaphore: woke ${woken} queued waiter(s) (${this.running}/${maxSlots} active, ${this.queue.length} still queued, freemem=${Math.round(os.freemem() / 1024 / 1024)}MB)`,
+      );
     } else {
       logger.debug(
         `SyntheticMonitorSemaphore: released slot (${this.running}/${maxSlots} active, ${this.queue.length} queued, freemem=${Math.round(os.freemem() / 1024 / 1024)}MB)`,

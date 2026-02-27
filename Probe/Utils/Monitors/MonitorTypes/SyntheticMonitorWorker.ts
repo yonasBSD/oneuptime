@@ -1,7 +1,9 @@
 /*
- * This script is executed via child_process.fork() with a sanitized environment
- * It launches Playwright, runs user code with node:vm (safe because env is stripped),
- * and sends results back via IPC.
+ * Long-lived worker process for synthetic monitors.
+ * Launched via child_process.fork() by SyntheticMonitorWorkerPool.
+ * Keeps a warm Playwright browser between executions to save ~150MB + ~300ms per run.
+ * Supports the new IPC protocol (execute/shutdown) and legacy protocol (plain WorkerConfig)
+ * for backward compatibility.
  */
 
 import BrowserType from "Common/Types/Monitor/SyntheticMonitors/BrowserType";
@@ -40,30 +42,60 @@ interface ProxyOptions {
   password?: string | undefined;
 }
 
-async function launchBrowserOnce(
-  config: WorkerConfig,
-): Promise<{ browser: Browser; context: BrowserContext; page: Page }> {
-  const viewport: { height: number; width: number } =
-    BrowserUtil.getViewportHeightAndWidth({
-      screenSizeType: config.screenSizeType,
-    });
+// IPC messages: parent → worker
+interface ExecuteMessage {
+  type: "execute";
+  id: string;
+  config: WorkerConfig;
+}
 
+interface ShutdownMessage {
+  type: "shutdown";
+}
+
+// IPC messages: worker → parent
+interface ReadyMessage {
+  type: "ready";
+  browserType?: BrowserType | undefined;
+}
+
+interface ResultMessage {
+  type: "result";
+  id: string;
+  data: WorkerResult;
+}
+
+interface ErrorMessage {
+  type: "error";
+  id: string;
+  error: string;
+}
+
+// Warm browser state
+let currentBrowser: Browser | null = null;
+let currentBrowserType: BrowserType | null = null;
+
+const MAX_BROWSER_LAUNCH_RETRIES: number = 3;
+const BROWSER_LAUNCH_RETRY_DELAY_MS: number = 2000;
+
+async function launchBrowserOnly(
+  browserType: BrowserType,
+  proxy?: WorkerConfig["proxy"],
+): Promise<Browser> {
   let proxyOptions: ProxyOptions | undefined;
 
-  if (config.proxy) {
+  if (proxy) {
     proxyOptions = {
-      server: config.proxy.server,
+      server: proxy.server,
     };
 
-    if (config.proxy.username && config.proxy.password) {
-      proxyOptions.username = config.proxy.username;
-      proxyOptions.password = config.proxy.password;
+    if (proxy.username && proxy.password) {
+      proxyOptions.username = proxy.username;
+      proxyOptions.password = proxy.password;
     }
   }
 
-  let browser: Browser;
-
-  if (config.browserType === BrowserType.Chromium) {
+  if (browserType === BrowserType.Chromium) {
     const launchOptions: Record<string, unknown> = {
       executablePath: await BrowserUtil.getChromeExecutablePath(),
       headless: true,
@@ -74,8 +106,8 @@ async function launchBrowserOnce(
       launchOptions["proxy"] = proxyOptions;
     }
 
-    browser = await chromium.launch(launchOptions);
-  } else if (config.browserType === BrowserType.Firefox) {
+    return chromium.launch(launchOptions);
+  } else if (browserType === BrowserType.Firefox) {
     const launchOptions: Record<string, unknown> = {
       executablePath: await BrowserUtil.getFirefoxExecutablePath(),
       headless: true,
@@ -86,33 +118,16 @@ async function launchBrowserOnce(
       launchOptions["proxy"] = proxyOptions;
     }
 
-    browser = await firefox.launch(launchOptions);
-  } else {
-    throw new Error("Invalid Browser Type.");
+    return firefox.launch(launchOptions);
   }
 
-  const context: BrowserContext = await browser.newContext({
-    viewport: {
-      width: viewport.width,
-      height: viewport.height,
-    },
-  });
-
-  const page: Page = await context.newPage();
-
-  // Set default timeouts so page operations don't hang indefinitely
-  page.setDefaultTimeout(config.timeout);
-  page.setDefaultNavigationTimeout(config.timeout);
-
-  return { browser, context, page };
+  throw new Error("Invalid Browser Type.");
 }
 
-const MAX_BROWSER_LAUNCH_RETRIES: number = 3;
-const BROWSER_LAUNCH_RETRY_DELAY_MS: number = 2000;
-
-async function launchBrowser(
-  config: WorkerConfig,
-): Promise<{ browser: Browser; context: BrowserContext; page: Page }> {
+async function launchBrowserWithRetry(
+  browserType: BrowserType,
+  proxy?: WorkerConfig["proxy"],
+): Promise<Browser> {
   let lastError: Error | undefined;
 
   for (
@@ -121,11 +136,10 @@ async function launchBrowser(
     attempt++
   ) {
     try {
-      return await launchBrowserOnce(config);
+      return await launchBrowserOnly(browserType, proxy);
     } catch (err: unknown) {
       lastError = err as Error;
 
-      // If this is not the last attempt, wait before retrying
       if (attempt < MAX_BROWSER_LAUNCH_RETRIES) {
         await new Promise((resolve: (value: void) => void) => {
           setTimeout(resolve, BROWSER_LAUNCH_RETRY_DELAY_MS);
@@ -141,7 +155,46 @@ async function launchBrowser(
   );
 }
 
-async function run(config: WorkerConfig): Promise<WorkerResult> {
+async function ensureBrowser(config: WorkerConfig): Promise<Browser> {
+  // If we have a browser of the right type and it's still connected, reuse it
+  if (
+    currentBrowser &&
+    currentBrowserType === config.browserType &&
+    currentBrowser.isConnected()
+  ) {
+    return currentBrowser;
+  }
+
+  // Close existing browser if it's a different type or crashed
+  if (currentBrowser) {
+    try {
+      if (currentBrowser.isConnected()) {
+        await currentBrowser.close();
+      }
+    } catch {
+      // ignore cleanup errors
+    }
+    currentBrowser = null;
+    currentBrowserType = null;
+  }
+
+  // Launch new browser
+  currentBrowser = await launchBrowserWithRetry(
+    config.browserType,
+    config.proxy,
+  );
+  currentBrowserType = config.browserType;
+
+  // Notify parent of browser type for affinity matching
+  sendMessage({
+    type: "ready",
+    browserType: currentBrowserType,
+  });
+
+  return currentBrowser;
+}
+
+async function runExecution(config: WorkerConfig): Promise<WorkerResult> {
   const workerResult: WorkerResult = {
     logMessages: [],
     scriptError: undefined,
@@ -150,21 +203,38 @@ async function run(config: WorkerConfig): Promise<WorkerResult> {
     executionTimeInMS: 0,
   };
 
-  let browser: Browser | null = null;
+  let context: BrowserContext | null = null;
 
   try {
     const startTime: [number, number] = process.hrtime();
 
-    const session: { browser: Browser; context: BrowserContext; page: Page } =
-      await launchBrowser(config);
-
-    browser = session.browser;
+    const browser: Browser = await ensureBrowser(config);
 
     // Track browser disconnection so we can give a clear error
     let browserDisconnected: boolean = false;
-    browser.on("disconnected", () => {
+    const disconnectHandler: () => void = (): void => {
       browserDisconnected = true;
+    };
+    browser.on("disconnected", disconnectHandler);
+
+    // Create an isolated context + page per execution (~10MB, cheap)
+    const viewport: { height: number; width: number } =
+      BrowserUtil.getViewportHeightAndWidth({
+        screenSizeType: config.screenSizeType,
+      });
+
+    context = await browser.newContext({
+      viewport: {
+        width: viewport.width,
+        height: viewport.height,
+      },
     });
+
+    const page: Page = await context.newPage();
+
+    // Set default timeouts so page operations don't hang indefinitely
+    page.setDefaultTimeout(config.timeout);
+    page.setDefaultNavigationTimeout(config.timeout);
 
     const logMessages: string[] = [];
 
@@ -180,8 +250,8 @@ async function run(config: WorkerConfig): Promise<WorkerResult> {
           );
         },
       },
-      browser: session.browser,
-      page: session.page,
+      browser: browser,
+      page: page,
       screenSizeType: config.screenSizeType,
       browserType: config.browserType,
       axios: axios,
@@ -199,12 +269,6 @@ async function run(config: WorkerConfig): Promise<WorkerResult> {
 
     let returnVal: unknown;
 
-    /*
-     * vm.runInContext's `timeout` option only applies to synchronous execution.
-     * Since the script is an async IIFE, vm returns a Promise immediately and
-     * the timeout never fires for the async body. We use Promise.race with an
-     * explicit timer to enforce a proper async timeout.
-     */
     let scriptTimeoutTimer: ReturnType<typeof setTimeout> | undefined;
 
     const scriptTimeoutPromise: Promise<never> = new Promise<never>(
@@ -223,16 +287,11 @@ async function run(config: WorkerConfig): Promise<WorkerResult> {
     try {
       returnVal = await Promise.race([
         vm.runInContext(script, sandbox, {
-          /*
-           * This timeout only guards against synchronous infinite loops.
-           * The async timeout is enforced by the Promise.race above.
-           */
           timeout: config.timeout,
         }),
         scriptTimeoutPromise,
       ]);
     } catch (scriptErr: unknown) {
-      // If the browser crashed during script execution, provide a clearer error
       if (browserDisconnected) {
         throw new Error(
           "Browser crashed or was terminated during script execution. This is usually caused by high memory usage. Try simplifying the script or reducing the number of page navigations.",
@@ -243,6 +302,7 @@ async function run(config: WorkerConfig): Promise<WorkerResult> {
       if (scriptTimeoutTimer) {
         clearTimeout(scriptTimeoutTimer);
       }
+      browser.removeListener("disconnected", disconnectHandler);
     }
 
     const endTime: [number, number] = process.hrtime(startTime);
@@ -253,33 +313,23 @@ async function run(config: WorkerConfig): Promise<WorkerResult> {
     workerResult.executionTimeInMS = executionTimeInMS;
     workerResult.logMessages = logMessages;
 
-    // Capture return value before closing browser to extract screenshots
+    // Capture return value before closing context to extract screenshots
     const returnObj: Record<string, unknown> =
       returnVal && typeof returnVal === "object"
         ? (returnVal as Record<string, unknown>)
         : {};
 
-    // Close browser before processing screenshots to free memory sooner
-    if (browser) {
+    // Close context (NOT browser) to free per-execution memory
+    if (context) {
       try {
-        const contexts: Array<BrowserContext> = browser.contexts();
-        for (const ctx of contexts) {
-          try {
-            await ctx.close();
-          } catch {
-            // ignore
-          }
-        }
-        if (browser.isConnected()) {
-          await browser.close();
-        }
+        await context.close();
       } catch {
-        // ignore cleanup errors
+        // ignore
       }
-      browser = null;
+      context = null;
     }
 
-    // Convert screenshots from Buffer to base64 (browser is already closed)
+    // Convert screenshots from Buffer to base64
     if (returnObj["screenshots"]) {
       const screenshots: Record<string, unknown> = returnObj[
         "screenshots"
@@ -304,20 +354,10 @@ async function run(config: WorkerConfig): Promise<WorkerResult> {
   } catch (err: unknown) {
     workerResult.scriptError = (err as Error)?.message || String(err);
   } finally {
-    // Close browser if not already closed (error path)
-    if (browser) {
+    // Close context if not already closed (error path) — leave browser warm
+    if (context) {
       try {
-        const contexts: Array<BrowserContext> = browser.contexts();
-        for (const ctx of contexts) {
-          try {
-            await ctx.close();
-          } catch {
-            // ignore
-          }
-        }
-        if (browser.isConnected()) {
-          await browser.close();
-        }
+        await context.close();
       } catch {
         // ignore cleanup errors
       }
@@ -327,23 +367,49 @@ async function run(config: WorkerConfig): Promise<WorkerResult> {
   return workerResult;
 }
 
+async function shutdownGracefully(): Promise<void> {
+  if (currentBrowser) {
+    try {
+      // Close all contexts first
+      const contexts: Array<BrowserContext> = currentBrowser.contexts();
+      for (const ctx of contexts) {
+        try {
+          await ctx.close();
+        } catch {
+          // ignore
+        }
+      }
+      if (currentBrowser.isConnected()) {
+        await currentBrowser.close();
+      }
+    } catch {
+      // ignore cleanup errors
+    }
+    currentBrowser = null;
+    currentBrowserType = null;
+  }
+  process.exit(0);
+}
+
+function sendMessage(
+  msg: ReadyMessage | ResultMessage | ErrorMessage,
+): void {
+  if (process.send) {
+    process.send(msg);
+  }
+}
+
 /*
- * Safety timeout for process.send() callback — if the IPC channel closes
- * before the message is flushed, the callback never fires and the process
- * hangs until killed by the fork timeout (producing exit code null).
+ * Safety timeout for process.send() callback in legacy mode.
  */
 const IPC_FLUSH_TIMEOUT_MS: number = 10000;
 
-// Entry point: receive config via IPC message
-process.on("message", (config: WorkerConfig) => {
+function handleLegacyMessage(config: WorkerConfig): void {
   /*
-   * Global safety timer: if everything else fails (browser hangs during
-   * cleanup, IPC stalls, etc.) force-exit the worker before the parent's
-   * fork timeout kills us with SIGTERM.  This ensures we always send a
-   * meaningful error back instead of producing a confusing "terminated
-   * by the system" message.
+   * Legacy one-shot mode: receive a plain WorkerConfig (no `type` field),
+   * run once, send result, exit. This maintains backward compatibility.
    */
-  const safetyMarginMs: number = 15000; // exit 15s before fork would kill us
+  const safetyMarginMs: number = 15000;
   const globalSafetyTimer: ReturnType<typeof setTimeout> = setTimeout(() => {
     const errorResult: WorkerResult = {
       logMessages: [],
@@ -360,7 +426,6 @@ process.on("message", (config: WorkerConfig) => {
       process.send(errorResult, () => {
         process.exit(1);
       });
-      // If IPC send hangs, force exit after 5s
       setTimeout(() => {
         process.exit(1);
       }, 5000);
@@ -369,31 +434,46 @@ process.on("message", (config: WorkerConfig) => {
     }
   }, config.timeout + safetyMarginMs);
 
-  // Don't let the safety timer prevent graceful exit
   if (globalSafetyTimer.unref) {
     globalSafetyTimer.unref();
   }
 
-  run(config)
+  runExecution(config)
     .then((result: WorkerResult) => {
       clearTimeout(globalSafetyTimer);
-      if (process.send) {
-        /*
-         * Wait for the IPC message to be flushed before exiting.
-         * process.send() is async — calling process.exit() immediately
-         * can kill the process before the message is delivered.
-         */
-        const fallbackTimer: ReturnType<typeof setTimeout> = setTimeout(() => {
-          process.exit(0);
-        }, IPC_FLUSH_TIMEOUT_MS);
+      // In legacy mode, close browser before exit since we won't reuse it
+      const cleanup: Promise<void> = (async (): Promise<void> => {
+        if (currentBrowser) {
+          try {
+            if (currentBrowser.isConnected()) {
+              await currentBrowser.close();
+            }
+          } catch {
+            // ignore
+          }
+          currentBrowser = null;
+        }
+      })();
 
-        process.send(result, () => {
-          clearTimeout(fallbackTimer);
+      cleanup.then(() => {
+        if (process.send) {
+          const fallbackTimer: ReturnType<typeof setTimeout> = setTimeout(
+            () => {
+              process.exit(0);
+            },
+            IPC_FLUSH_TIMEOUT_MS,
+          );
+
+          process.send(result, () => {
+            clearTimeout(fallbackTimer);
+            process.exit(0);
+          });
+        } else {
           process.exit(0);
-        });
-      } else {
-        process.exit(0);
-      }
+        }
+      }).catch(() => {
+        process.exit(1);
+      });
     })
     .catch((err: unknown) => {
       clearTimeout(globalSafetyTimer);
@@ -419,4 +499,43 @@ process.on("message", (config: WorkerConfig) => {
         process.exit(1);
       }
     });
-});
+}
+
+// Entry point: receive messages via IPC
+process.on(
+  "message",
+  (msg: ExecuteMessage | ShutdownMessage | WorkerConfig) => {
+    // Distinguish new protocol (has `type` field) from legacy (plain WorkerConfig)
+    if ("type" in msg && typeof msg.type === "string") {
+      if (msg.type === "execute") {
+        const executeMsg: ExecuteMessage = msg as ExecuteMessage;
+        runExecution(executeMsg.config)
+          .then((result: WorkerResult) => {
+            sendMessage({
+              type: "result",
+              id: executeMsg.id,
+              data: result,
+            });
+          })
+          .catch((err: unknown) => {
+            sendMessage({
+              type: "error",
+              id: executeMsg.id,
+              error: (err as Error)?.message || String(err),
+            });
+          });
+        return;
+      }
+
+      if (msg.type === "shutdown") {
+        shutdownGracefully().catch(() => {
+          process.exit(1);
+        });
+        return;
+      }
+    }
+
+    // Legacy protocol: plain WorkerConfig
+    handleLegacyMessage(msg as WorkerConfig);
+  },
+);
