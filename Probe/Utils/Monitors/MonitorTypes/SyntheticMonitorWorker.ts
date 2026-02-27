@@ -194,6 +194,58 @@ async function ensureBrowser(config: WorkerConfig): Promise<Browser> {
   return currentBrowser;
 }
 
+const MAX_CONTEXT_CREATE_RETRIES: number = 3;
+const CONTEXT_CREATE_RETRY_DELAY_MS: number = 1000;
+
+async function createContextAndPage(
+  config: WorkerConfig,
+): Promise<{ browser: Browser; context: BrowserContext; page: Page }> {
+  const viewport: { height: number; width: number } =
+    BrowserUtil.getViewportHeightAndWidth({
+      screenSizeType: config.screenSizeType,
+    });
+
+  let lastError: Error | undefined;
+
+  for (
+    let attempt: number = 1;
+    attempt <= MAX_CONTEXT_CREATE_RETRIES;
+    attempt++
+  ) {
+    const browser: Browser = await ensureBrowser(config);
+
+    try {
+      const context: BrowserContext = await browser.newContext({
+        viewport: {
+          width: viewport.width,
+          height: viewport.height,
+        },
+      });
+
+      const page: Page = await context.newPage();
+      return { browser, context, page };
+    } catch (err: unknown) {
+      lastError = err as Error;
+
+      // Browser died between launch and context/page creation — force relaunch
+      currentBrowser = null;
+      currentBrowserType = null;
+
+      if (attempt < MAX_CONTEXT_CREATE_RETRIES) {
+        await new Promise((resolve: (value: void) => void) => {
+          setTimeout(resolve, CONTEXT_CREATE_RETRY_DELAY_MS);
+        });
+      }
+    }
+  }
+
+  throw new Error(
+    `Failed to create browser context/page after ${MAX_CONTEXT_CREATE_RETRIES} attempts. ` +
+      `The browser may be crashing on startup due to insufficient memory or container restrictions. ` +
+      `Last error: ${lastError?.message || String(lastError)}`,
+  );
+}
+
 async function runExecution(config: WorkerConfig): Promise<WorkerResult> {
   const workerResult: WorkerResult = {
     logMessages: [],
@@ -208,7 +260,15 @@ async function runExecution(config: WorkerConfig): Promise<WorkerResult> {
   try {
     const startTime: [number, number] = process.hrtime();
 
-    const browser: Browser = await ensureBrowser(config);
+    const session: {
+      browser: Browser;
+      context: BrowserContext;
+      page: Page;
+    } = await createContextAndPage(config);
+
+    const browser: Browser = session.browser;
+    context = session.context;
+    const page: Page = session.page;
 
     // Track browser disconnection so we can give a clear error
     let browserDisconnected: boolean = false;
@@ -216,21 +276,6 @@ async function runExecution(config: WorkerConfig): Promise<WorkerResult> {
       browserDisconnected = true;
     };
     browser.on("disconnected", disconnectHandler);
-
-    // Create an isolated context + page per execution (~10MB, cheap)
-    const viewport: { height: number; width: number } =
-      BrowserUtil.getViewportHeightAndWidth({
-        screenSizeType: config.screenSizeType,
-      });
-
-    context = await browser.newContext({
-      viewport: {
-        width: viewport.width,
-        height: viewport.height,
-      },
-    });
-
-    const page: Page = await context.newPage();
 
     // Set default timeouts so page operations don't hang indefinitely
     page.setDefaultTimeout(config.timeout);
