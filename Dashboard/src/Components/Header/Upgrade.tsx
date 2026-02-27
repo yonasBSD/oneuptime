@@ -60,9 +60,6 @@ const Upgrade: () => JSX.Element = (): ReactElement => {
           }}
           formProps={{
             name: "Change Plan",
-            saveRequestOptions: {
-              isMultiTenantRequest: true, // because this is a tenant request, we do not have to include the header in the request
-            },
             modelType: Project,
             id: "create-project-from",
             fields: [
