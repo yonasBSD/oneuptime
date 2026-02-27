@@ -7,6 +7,7 @@ jest.mock("../../../../Server/EnvironmentConfig", () => {
 
 jest.mock("../../../../Server/Middleware/ClusterKeyAuthorization", () => {
   return {
+    __esModule: true,
     default: {
       getClusterKeyHeaders: () => {
         return {};
@@ -17,12 +18,14 @@ jest.mock("../../../../Server/Middleware/ClusterKeyAuthorization", () => {
 
 jest.mock("../../../../Utils/API", () => {
   return {
+    __esModule: true,
     default: { post: jest.fn() },
   };
 });
 
 jest.mock("../../../../Server/Utils/Logger", () => {
   return {
+    __esModule: true,
     default: {
       error: jest.fn(),
       debug: jest.fn(),
@@ -34,6 +37,7 @@ jest.mock("../../../../Server/Utils/Logger", () => {
 
 jest.mock("../../../../Server/Utils/Telemetry/CaptureSpan", () => {
   return {
+    __esModule: true,
     default: () => {
       return (
         _target: any,
