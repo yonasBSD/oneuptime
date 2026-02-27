@@ -54,12 +54,10 @@ export default class UserWebAuthnAPI extends BaseAPI<
           const databaseProps: DatabaseCommonInteractionProps =
             await CommonAPI.getDatabaseCommonInteractionProps(req);
 
-          const expectedChallenge: string = data["challenge"] as string;
           const credential: any = data["credential"];
           const name: string = data["name"] as string;
 
           await UserWebAuthnService.verifyRegistration({
-            challenge: expectedChallenge,
             credential: credential,
             name: name,
             props: databaseProps,

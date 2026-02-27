@@ -1039,12 +1039,10 @@ const login: LoginFunction = async (options: {
             );
           }
         } else if (verifyWebAuthn) {
-          const expectedChallenge: string = data["challenge"] as string;
           const credential: any = data["credential"];
 
           await UserWebAuthnService.verifyAuthentication({
             userId: alreadySavedUser.id!.toString(),
-            challenge: expectedChallenge,
             credential: credential,
           });
         }

@@ -376,7 +376,6 @@ const Home: FunctionComponent<PageComponentProps> = (): ReactElement => {
                     `/user-webauthn/verify-registration`,
                   ),
                   data: {
-                    challenge: data.challenge,
                     name: values["name"],
                     credential: {
                       id: credential.id,
