@@ -23,7 +23,7 @@ class SyntheticMonitorSemaphore {
     const free: number = os.freemem();
     const usable: number = free - MEMORY_BUFFER_BYTES;
     const slots: number = Math.floor(usable / MEMORY_PER_MONITOR_BYTES);
-    return Math.max(2, slots); // always allow at least 6 concurrent monitors, even if memory is low, to avoid complete service disruption (with the risk of OOM)
+    return Math.max(2, slots); // always allow at least 2 concurrent monitors, even if memory is low, to avoid complete service disruption (with the risk of OOM)
   }
 
   /**

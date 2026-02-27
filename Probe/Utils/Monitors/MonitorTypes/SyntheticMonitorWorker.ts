@@ -74,6 +74,7 @@ interface ErrorMessage {
 // Warm browser state
 let currentBrowser: Browser | null = null;
 let currentBrowserType: BrowserType | null = null;
+let currentProxyServer: string | null = null;
 
 const MAX_BROWSER_LAUNCH_RETRIES: number = 3;
 const BROWSER_LAUNCH_RETRY_DELAY_MS: number = 2000;
@@ -156,16 +157,19 @@ async function launchBrowserWithRetry(
 }
 
 async function ensureBrowser(config: WorkerConfig): Promise<Browser> {
-  // If we have a browser of the right type and it's still connected, reuse it
+  const configProxyServer: string | null = config.proxy?.server || null;
+
+  // If we have a browser of the right type, same proxy, and it's still connected, reuse it
   if (
     currentBrowser &&
     currentBrowserType === config.browserType &&
+    currentProxyServer === configProxyServer &&
     currentBrowser.isConnected()
   ) {
     return currentBrowser;
   }
 
-  // Close existing browser if it's a different type or crashed
+  // Close existing browser if type/proxy changed or browser crashed
   if (currentBrowser) {
     try {
       if (currentBrowser.isConnected()) {
@@ -176,6 +180,7 @@ async function ensureBrowser(config: WorkerConfig): Promise<Browser> {
     }
     currentBrowser = null;
     currentBrowserType = null;
+    currentProxyServer = null;
   }
 
   // Launch new browser
@@ -184,6 +189,7 @@ async function ensureBrowser(config: WorkerConfig): Promise<Browser> {
     config.proxy,
   );
   currentBrowserType = config.browserType;
+  currentProxyServer = configProxyServer;
 
   // Notify parent of browser type for affinity matching
   sendMessage({
@@ -227,9 +233,19 @@ async function createContextAndPage(
     } catch (err: unknown) {
       lastError = err as Error;
 
-      // Browser died between launch and context/page creation — force relaunch
+      // Browser died between launch and context/page creation — close and force relaunch
+      if (currentBrowser) {
+        try {
+          if (currentBrowser.isConnected()) {
+            await currentBrowser.close();
+          }
+        } catch {
+          // ignore cleanup errors
+        }
+      }
       currentBrowser = null;
       currentBrowserType = null;
+      currentProxyServer = null;
 
       if (attempt < MAX_CONTEXT_CREATE_RETRIES) {
         await new Promise((resolve: (value: void) => void) => {
@@ -432,6 +448,7 @@ async function shutdownGracefully(): Promise<void> {
     }
     currentBrowser = null;
     currentBrowserType = null;
+    currentProxyServer = null;
   }
   process.exit(0);
 }
@@ -554,8 +571,30 @@ process.on(
     if ("type" in msg && typeof msg.type === "string") {
       if (msg.type === "execute") {
         const executeMsg: ExecuteMessage = msg as ExecuteMessage;
+
+        // Per-execution safety timer: if runExecution hangs (browser stuck, VM stuck),
+        // send an error back before the pool's timeout SIGKILL-s us with no message.
+        const safetyMarginMs: number = 15000;
+        const executionSafetyTimer: ReturnType<typeof setTimeout> = setTimeout(
+          () => {
+            sendMessage({
+              type: "error",
+              id: executeMsg.id,
+              error:
+                "Synthetic monitor worker safety timeout reached. " +
+                "The script or browser cleanup took too long.",
+            });
+          },
+          executeMsg.config.timeout + safetyMarginMs,
+        );
+
+        if (executionSafetyTimer.unref) {
+          executionSafetyTimer.unref();
+        }
+
         runExecution(executeMsg.config)
           .then((result: WorkerResult) => {
+            clearTimeout(executionSafetyTimer);
             sendMessage({
               type: "result",
               id: executeMsg.id,
@@ -563,6 +602,7 @@ process.on(
             });
           })
           .catch((err: unknown) => {
+            clearTimeout(executionSafetyTimer);
             sendMessage({
               type: "error",
               id: executeMsg.id,

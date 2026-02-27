@@ -1,12 +1,13 @@
 import logger from "Common/Server/Utils/Logger";
 import BrowserType from "Common/Types/Monitor/SyntheticMonitors/BrowserType";
+import ScreenSizeType from "Common/Types/Monitor/SyntheticMonitors/ScreenSizeType";
 import { ChildProcess, fork } from "child_process";
 import path from "path";
 
 interface WorkerConfig {
   script: string;
   browserType: BrowserType;
-  screenSizeType: string;
+  screenSizeType: ScreenSizeType;
   timeout: number;
   proxy?:
     | {
@@ -153,7 +154,19 @@ class SyntheticMonitorWorkerPool {
           config: config,
         };
 
-        worker.process.send(message);
+        try {
+          worker.process.send(message);
+        } catch (sendErr: unknown) {
+          // IPC channel is broken — clean up and reject immediately
+          this.clearWorkerPending(worker);
+          worker.busy = false;
+          this.removeWorker(worker);
+          reject(
+            new Error(
+              `Failed to send config to worker: ${(sendErr as Error)?.message || String(sendErr)}`,
+            ),
+          );
+        }
       },
     );
   }
