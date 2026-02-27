@@ -452,6 +452,14 @@ async function runExecution(config: WorkerConfig): Promise<WorkerResult> {
       context = null;
     }
 
+    // In --single-process mode, closing a context can destabilize the browser.
+    // Proactively check health so the next execution doesn't waste time on a zombie.
+    if (currentBrowser && !currentBrowser.isConnected()) {
+      currentBrowser = null;
+      currentBrowserType = null;
+      currentProxyServer = null;
+    }
+
     // Convert screenshots from Buffer to base64
     if (returnObj["screenshots"]) {
       const screenshots: Record<string, unknown> = returnObj[
@@ -484,6 +492,13 @@ async function runExecution(config: WorkerConfig): Promise<WorkerResult> {
       } catch {
         // ignore cleanup errors
       }
+    }
+
+    // Proactively detect zombie browser after context cleanup
+    if (currentBrowser && !currentBrowser.isConnected()) {
+      currentBrowser = null;
+      currentBrowserType = null;
+      currentProxyServer = null;
     }
   }
 
