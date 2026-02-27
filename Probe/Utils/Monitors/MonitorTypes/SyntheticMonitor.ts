@@ -153,7 +153,7 @@ export default class SyntheticMonitor {
         );
       }
 
-      result = await VMRunner.runCodeInSandbox({
+      result = await VMRunner.runCodeInNodeVM({
         code: options.script,
         options: {
           timeout: PROBE_SYNTHETIC_MONITOR_SCRIPT_TIMEOUT_IN_MS,
