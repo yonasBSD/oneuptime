@@ -238,7 +238,7 @@ export default class SyntheticMonitor {
 
         const child: ChildProcess = fork(workerPath, [], {
           env: this.getSanitizedEnv(),
-          execArgv: [...process.execArgv, "--max-old-space-size=512"], // preserve parent execArgv (e.g. ts-node/register) and limit worker heap
+          execArgv: [...process.execArgv, "--max-old-space-size=256"], // preserve parent execArgv (e.g. ts-node/register) and limit worker heap
           timeout: timeout + 60000, // fork-level timeout: generous margin since the worker handles its own script timeout
           stdio: ["pipe", "pipe", "pipe", "ipc"],
         });

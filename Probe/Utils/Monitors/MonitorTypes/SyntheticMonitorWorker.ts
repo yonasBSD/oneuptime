@@ -253,12 +253,33 @@ async function run(config: WorkerConfig): Promise<WorkerResult> {
     workerResult.executionTimeInMS = executionTimeInMS;
     workerResult.logMessages = logMessages;
 
-    // Convert screenshots from Buffer to base64
+    // Capture return value before closing browser to extract screenshots
     const returnObj: Record<string, unknown> =
       returnVal && typeof returnVal === "object"
         ? (returnVal as Record<string, unknown>)
         : {};
 
+    // Close browser before processing screenshots to free memory sooner
+    if (browser) {
+      try {
+        const contexts: Array<BrowserContext> = browser.contexts();
+        for (const ctx of contexts) {
+          try {
+            await ctx.close();
+          } catch {
+            // ignore
+          }
+        }
+        if (browser.isConnected()) {
+          await browser.close();
+        }
+      } catch {
+        // ignore cleanup errors
+      }
+      browser = null;
+    }
+
+    // Convert screenshots from Buffer to base64 (browser is already closed)
     if (returnObj["screenshots"]) {
       const screenshots: Record<string, unknown> = returnObj[
         "screenshots"
@@ -283,7 +304,7 @@ async function run(config: WorkerConfig): Promise<WorkerResult> {
   } catch (err: unknown) {
     workerResult.scriptError = (err as Error)?.message || String(err);
   } finally {
-    // Close browser
+    // Close browser if not already closed (error path)
     if (browser) {
       try {
         const contexts: Array<BrowserContext> = browser.contexts();
