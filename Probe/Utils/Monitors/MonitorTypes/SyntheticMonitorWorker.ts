@@ -456,8 +456,12 @@ async function shutdownGracefully(): Promise<void> {
 function sendMessage(
   msg: ReadyMessage | ResultMessage | ErrorMessage,
 ): void {
-  if (process.send) {
-    process.send(msg);
+  try {
+    if (process.send) {
+      process.send(msg);
+    }
+  } catch {
+    // IPC channel closed — can't send. Worker will be cleaned up by pool timeout or exit handler.
   }
 }
 
