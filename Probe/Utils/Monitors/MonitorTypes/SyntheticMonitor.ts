@@ -1,5 +1,6 @@
 import { PROBE_SYNTHETIC_MONITOR_SCRIPT_TIMEOUT_IN_MS } from "../../../Config";
 import ProxyConfig from "../../ProxyConfig";
+import SyntheticMonitorSemaphore from "../../SyntheticMonitorSemaphore";
 import BrowserType from "Common/Types/Monitor/SyntheticMonitors/BrowserType";
 import ScreenSizeType from "Common/Types/Monitor/SyntheticMonitors/ScreenSizeType";
 import SyntheticMonitorResponse from "Common/Types/Monitor/SyntheticMonitors/SyntheticMonitorResponse";
@@ -56,6 +57,7 @@ export default class SyntheticMonitor {
             browserType: browserType,
             screenSizeType: screenSizeType,
             retryCountOnError: options.retryCountOnError || 0,
+            monitorId: options.monitorId,
           });
 
         if (result) {
@@ -75,6 +77,7 @@ export default class SyntheticMonitor {
     screenSizeType: ScreenSizeType;
     retryCountOnError: number;
     currentRetry?: number;
+    monitorId?: ObjectID | undefined;
   }): Promise<SyntheticMonitorResponse | null> {
     const currentRetry: number = options.currentRetry || 0;
     const maxRetries: number = options.retryCountOnError;
@@ -84,6 +87,7 @@ export default class SyntheticMonitor {
         script: options.script,
         browserType: options.browserType,
         screenSizeType: options.screenSizeType,
+        monitorId: options.monitorId,
       });
 
     // If there's an error and we haven't exceeded retry count, retry
@@ -103,6 +107,7 @@ export default class SyntheticMonitor {
         screenSizeType: options.screenSizeType,
         retryCountOnError: maxRetries,
         currentRetry: currentRetry + 1,
+        monitorId: options.monitorId,
       });
     }
 
@@ -173,6 +178,7 @@ export default class SyntheticMonitor {
     script: string;
     browserType: BrowserType;
     screenSizeType: ScreenSizeType;
+    monitorId?: ObjectID | undefined;
   }): Promise<SyntheticMonitorResponse | null> {
     if (!options) {
       options = {
@@ -202,6 +208,27 @@ export default class SyntheticMonitor {
       proxy: this.getProxyConfig(),
     };
 
+    const monitorIdStr: string | undefined =
+      options.monitorId?.toString() || undefined;
+
+    let acquired: boolean = false;
+
+    try {
+      acquired = await SyntheticMonitorSemaphore.acquire(monitorIdStr);
+    } catch (err: unknown) {
+      logger.error(
+        `Synthetic monitor semaphore acquire failed: ${(err as Error)?.message}`,
+      );
+      scriptResult.scriptError =
+        (err as Error)?.message || (err as Error).toString();
+      return scriptResult;
+    }
+
+    if (!acquired) {
+      // This monitor is already running or queued — skip duplicate execution
+      return null;
+    }
+
     try {
       const workerResult: WorkerResult = await this.forkWorker(
         workerConfig,
@@ -217,6 +244,8 @@ export default class SyntheticMonitor {
       logger.error(err);
       scriptResult.scriptError =
         (err as Error)?.message || (err as Error).toString();
+    } finally {
+      SyntheticMonitorSemaphore.release(monitorIdStr);
     }
 
     return scriptResult;
