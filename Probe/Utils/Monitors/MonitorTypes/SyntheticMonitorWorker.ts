@@ -156,6 +156,8 @@ async function launchBrowserWithRetry(
   );
 }
 
+let executionsSinceLastLaunch: number = 0;
+
 async function ensureBrowser(config: WorkerConfig): Promise<Browser> {
   const configProxyServer: string | null = config.proxy?.server || null;
 
@@ -166,10 +168,40 @@ async function ensureBrowser(config: WorkerConfig): Promise<Browser> {
     currentProxyServer === configProxyServer &&
     currentBrowser.isConnected()
   ) {
+    executionsSinceLastLaunch++;
+    if (process.send) {
+      try {
+        process.send({
+          type: "log",
+          message: `[SyntheticMonitorWorker] Reusing warm ${config.browserType} browser (execution #${executionsSinceLastLaunch} since launch)`,
+        });
+      } catch {
+        // ignore
+      }
+    }
     return currentBrowser;
   }
 
   // Close existing browser if type/proxy changed or browser crashed
+  const reason: string = !currentBrowser
+    ? "no browser"
+    : currentBrowserType !== config.browserType
+      ? `type change (${currentBrowserType} → ${config.browserType})`
+      : currentProxyServer !== configProxyServer
+        ? "proxy change"
+        : "browser disconnected";
+
+  if (process.send) {
+    try {
+      process.send({
+        type: "log",
+        message: `[SyntheticMonitorWorker] Launching new browser — reason: ${reason}`,
+      });
+    } catch {
+      // ignore
+    }
+  }
+
   if (currentBrowser) {
     try {
       if (currentBrowser.isConnected()) {
@@ -182,6 +214,8 @@ async function ensureBrowser(config: WorkerConfig): Promise<Browser> {
     currentBrowserType = null;
     currentProxyServer = null;
   }
+
+  executionsSinceLastLaunch = 1;
 
   // Launch new browser
   currentBrowser = await launchBrowserWithRetry(
@@ -218,7 +252,12 @@ async function createContextAndPage(
     attempt <= MAX_CONTEXT_CREATE_RETRIES;
     attempt++
   ) {
+    const browserStartTime: [number, number] = process.hrtime();
     const browser: Browser = await ensureBrowser(config);
+    const browserElapsed: [number, number] = process.hrtime(browserStartTime);
+    const browserMs: number = Math.ceil(
+      (browserElapsed[0] * 1000000000 + browserElapsed[1]) / 1000000,
+    );
 
     try {
       const context: BrowserContext = await browser.newContext({
@@ -229,9 +268,32 @@ async function createContextAndPage(
       });
 
       const page: Page = await context.newPage();
+
+      if (process.send) {
+        try {
+          process.send({
+            type: "log",
+            message: `[SyntheticMonitorWorker] Context+page created (attempt ${attempt}, ensureBrowser took ${browserMs}ms)`,
+          });
+        } catch {
+          // ignore
+        }
+      }
+
       return { browser, context, page };
     } catch (err: unknown) {
       lastError = err as Error;
+
+      if (process.send) {
+        try {
+          process.send({
+            type: "log",
+            message: `[SyntheticMonitorWorker] Context/page creation failed on attempt ${attempt}/${MAX_CONTEXT_CREATE_RETRIES}: ${(err as Error)?.message}. ensureBrowser took ${browserMs}ms`,
+          });
+        } catch {
+          // ignore
+        }
+      }
 
       // Browser died between launch and context/page creation — close and force relaunch
       if (currentBrowser) {

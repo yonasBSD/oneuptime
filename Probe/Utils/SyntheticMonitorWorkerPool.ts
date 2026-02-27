@@ -57,7 +57,16 @@ interface ErrorMessage {
   error: string;
 }
 
-type WorkerToParentMessage = ReadyMessage | ResultMessage | ErrorMessage;
+interface LogMessage {
+  type: "log";
+  message: string;
+}
+
+type WorkerToParentMessage =
+  | ReadyMessage
+  | ResultMessage
+  | ErrorMessage
+  | LogMessage;
 
 const MAX_EXECUTIONS_PER_WORKER: number = 50;
 const WORKER_IDLE_TIMEOUT_MS: number = 5 * 60 * 1000; // 5 minutes
@@ -277,6 +286,12 @@ class SyntheticMonitorWorkerPool {
     worker: PoolWorker,
     msg: WorkerToParentMessage,
   ): void {
+    // Forward diagnostic logs from worker to probe logger
+    if (msg.type === "log") {
+      logger.debug(msg.message);
+      return;
+    }
+
     if (msg.type === "ready") {
       worker.browserType = msg.browserType;
       return;
