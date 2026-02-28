@@ -278,7 +278,7 @@ const MarkdownEditor: FunctionComponent<ComponentProps> = (
   let className: string = "";
   if (!props.className) {
     className =
-      "block w-full rounded-md border border-gray-300 bg-white py-2 pl-3 pr-3 text-sm placeholder-gray-500 focus:border-indigo-500 focus:text-gray-900 focus:placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none";
+      "block w-full rounded-md border border-gray-300 bg-white py-2 pl-3 pr-3 text-sm placeholder-gray-500 focus:border-indigo-500 focus:text-gray-900 focus:placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-y";
   } else {
     className = props.className;
   }
@@ -630,7 +630,7 @@ const MarkdownEditor: FunctionComponent<ComponentProps> = (
                 }
               }}
               tabIndex={props.tabIndex}
-              rows={6}
+              rows={10}
             />
             {props.error && (
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
