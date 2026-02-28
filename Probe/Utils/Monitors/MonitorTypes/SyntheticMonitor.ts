@@ -43,9 +43,12 @@ export default class SyntheticMonitor {
     options: SyntheticMonitorOptions,
   ): Promise<Array<SyntheticMonitorResponse> | null> {
     const results: Array<SyntheticMonitorResponse> = [];
+    let totalExecutions: number = 0;
 
     for (const browserType of options.browserTypes || []) {
       for (const screenSizeType of options.screenSizeTypes || []) {
+        totalExecutions++;
+
         logger.debug(
           `Running Synthetic Monitor: ${options?.monitorId?.toString()}, Screen Size: ${screenSizeType}, Browser: ${browserType}`,
         );
@@ -65,6 +68,18 @@ export default class SyntheticMonitor {
           results.push(result);
         }
       }
+    }
+
+    // If we attempted executions but got zero results (all were skipped due to
+    // infrastructure errors like worker timeouts, OOM kills, or semaphore
+    // issues), return null to skip this entire check cycle. This prevents the
+    // monitor from flapping to the default status when the probe infrastructure
+    // is under load but the monitored service may be perfectly healthy.
+    if (totalExecutions > 0 && results.length === 0) {
+      logger.warn(
+        `Synthetic Monitor ${options?.monitorId?.toString()}: all ${totalExecutions} executions were skipped due to infrastructure issues, skipping this check cycle`,
+      );
+      return null;
     }
 
     return results;
@@ -88,18 +103,13 @@ export default class SyntheticMonitor {
     try {
       acquired = await SyntheticMonitorSemaphore.acquire(monitorIdStr);
     } catch (err: unknown) {
+      // Semaphore errors (queue full, timeout waiting for slot) are infrastructure
+      // issues, not script failures. Skip this check cycle so the monitor stays in
+      // its last known state instead of flapping to offline.
       logger.error(
-        `Synthetic monitor semaphore acquire failed: ${(err as Error)?.message}`,
+        `Synthetic monitor semaphore acquire failed (skipping this cycle): ${(err as Error)?.message}`,
       );
-      return {
-        logMessages: [],
-        scriptError: (err as Error)?.message || (err as Error).toString(),
-        result: undefined,
-        screenshots: {},
-        executionTimeInMS: 0,
-        browserType: options.browserType,
-        screenSizeType: options.screenSizeType,
-      };
+      return null;
     }
 
     if (!acquired) {
@@ -233,9 +243,15 @@ export default class SyntheticMonitor {
       scriptResult.screenshots = workerResult.screenshots;
       scriptResult.executionTimeInMS = workerResult.executionTimeInMS;
     } catch (err: unknown) {
-      logger.error(err);
-      scriptResult.scriptError =
-        (err as Error)?.message || (err as Error).toString();
+      // Errors thrown by the worker pool are always infrastructure issues (worker
+      // timeout, OOM kill, process crash, IPC failure) — NOT script failures.
+      // Actual script errors are returned inside WorkerResult.scriptError without
+      // throwing. Skip this check cycle so the monitor stays in its last known
+      // state instead of flapping between online and offline.
+      logger.error(
+        `Synthetic monitor infrastructure error (skipping this cycle): ${(err as Error)?.message || String(err)}`,
+      );
+      return null;
     }
 
     return scriptResult;
