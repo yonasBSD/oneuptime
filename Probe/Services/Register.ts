@@ -190,7 +190,10 @@ export default class Register {
           options: { ...ProxyConfig.getRequestProxyAgents(aliveUrl) },
         });
 
-      if (aliveResult instanceof HTTPErrorResponse || !aliveResult.isSuccess()) {
+      if (
+        aliveResult instanceof HTTPErrorResponse ||
+        !aliveResult.isSuccess()
+      ) {
         const errorMessage: string =
           aliveResult instanceof HTTPErrorResponse
             ? aliveResult.message || JSON.stringify(aliveResult.data || {})

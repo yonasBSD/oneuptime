@@ -340,9 +340,7 @@ export class Service extends DatabaseService<Model> {
    * Retrieves the stored WebAuthn challenge for the given user,
    * validates it has not expired, and clears it so it cannot be reused.
    */
-  private async getAndClearStoredChallenge(
-    userId: ObjectID,
-  ): Promise<string> {
+  private async getAndClearStoredChallenge(userId: ObjectID): Promise<string> {
     const user: User | null = await UserService.findOneById({
       id: userId,
       select: {
@@ -375,8 +373,8 @@ export class Service extends DatabaseService<Model> {
       await UserService.updateOneById({
         id: userId,
         data: {
-          webauthnChallenge: (null as any),
-          webauthnChallengeExpiresAt: (null as any),
+          webauthnChallenge: null as any,
+          webauthnChallengeExpiresAt: null as any,
         },
         props: {
           isRoot: true,
@@ -394,8 +392,8 @@ export class Service extends DatabaseService<Model> {
     await UserService.updateOneById({
       id: userId,
       data: {
-        webauthnChallenge: (null as any),
-        webauthnChallengeExpiresAt: (null as any),
+        webauthnChallenge: null as any,
+        webauthnChallengeExpiresAt: null as any,
       },
       props: {
         isRoot: true,

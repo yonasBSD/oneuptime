@@ -7,10 +7,7 @@ import https from "https";
 import ivm from "isolated-vm";
 import CaptureSpan from "../Telemetry/CaptureSpan";
 
-
 export default class VMRunner {
-
-
   @CaptureSpan()
   public static async runCodeInSandbox(data: {
     code: string;

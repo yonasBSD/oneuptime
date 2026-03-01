@@ -83,10 +83,7 @@ async function buildRssFeed(data: {
       : `${data.baseUrlString}${post.blogUrl.startsWith("/") ? post.blogUrl : `/${post.blogUrl}`}`;
 
     item.ele("link").txt(postUrl);
-    item
-      .ele("guid")
-      .att("isPermaLink", "true")
-      .txt(postUrl);
+    item.ele("guid").att("isPermaLink", "true").txt(postUrl);
     item
       .ele("pubDate")
       .txt(new Date(`${post.postDate}T00:00:00.000Z`).toUTCString());
@@ -115,8 +112,7 @@ export async function generateBlogRssFeed(): Promise<string> {
   const baseUrl: URL = await BlogPostUtil.getHomeUrl();
   const baseUrlString: string = baseUrl.toString().replace(/\/$/, "");
 
-  const blogPosts: Array<BlogPostHeader> =
-    await BlogPostUtil.getBlogPostList();
+  const blogPosts: Array<BlogPostHeader> = await BlogPostUtil.getBlogPostList();
 
   const xml: string = await buildRssFeed({
     title: "OneUptime Blog",

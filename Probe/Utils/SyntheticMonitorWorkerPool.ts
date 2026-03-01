@@ -337,8 +337,7 @@ class SyntheticMonitorWorkerPool {
   }
 
   private rejectWorkerExecution(worker: PoolWorker, error: Error): void {
-    const reject: ((reason: Error) => void) | undefined =
-      worker.pendingReject;
+    const reject: ((reason: Error) => void) | undefined = worker.pendingReject;
 
     this.clearWorkerPending(worker);
     worker.busy = false;
@@ -373,8 +372,7 @@ class SyntheticMonitorWorkerPool {
       `SyntheticMonitorWorkerPool: worker execution timed out, killing worker`,
     );
 
-    const reject: ((reason: Error) => void) | undefined =
-      worker.pendingReject;
+    const reject: ((reason: Error) => void) | undefined = worker.pendingReject;
 
     this.clearWorkerPending(worker);
     this.removeWorker(worker);
@@ -430,9 +428,7 @@ class SyntheticMonitorWorkerPool {
   }
 
   private handleWorkerError(worker: PoolWorker, err: Error): void {
-    logger.error(
-      `SyntheticMonitorWorkerPool: worker error: ${err.message}`,
-    );
+    logger.error(`SyntheticMonitorWorkerPool: worker error: ${err.message}`);
 
     if (worker.pendingReject) {
       const reject: (reason: Error) => void = worker.pendingReject;
@@ -466,9 +462,7 @@ class SyntheticMonitorWorkerPool {
   private retireWorker(worker: PoolWorker): void {
     this.removeWorker(worker);
     this.shutdownWorker(worker).catch((err: unknown) => {
-      logger.error(
-        `SyntheticMonitorWorkerPool: error retiring worker: ${err}`,
-      );
+      logger.error(`SyntheticMonitorWorkerPool: error retiring worker: ${err}`);
     });
   }
 

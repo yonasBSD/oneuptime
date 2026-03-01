@@ -452,8 +452,10 @@ async function runExecution(config: WorkerConfig): Promise<WorkerResult> {
       context = null;
     }
 
-    // In --single-process mode, closing a context can destabilize the browser.
-    // Proactively check health so the next execution doesn't waste time on a zombie.
+    /*
+     * In --single-process mode, closing a context can destabilize the browser.
+     * Proactively check health so the next execution doesn't waste time on a zombie.
+     */
     if (currentBrowser && !currentBrowser.isConnected()) {
       currentBrowser = null;
       currentBrowserType = null;
@@ -530,9 +532,7 @@ async function shutdownGracefully(): Promise<void> {
   process.exit(0);
 }
 
-function sendMessage(
-  msg: ReadyMessage | ResultMessage | ErrorMessage,
-): void {
+function sendMessage(msg: ReadyMessage | ResultMessage | ErrorMessage): void {
   try {
     if (process.send) {
       process.send(msg);
@@ -598,25 +598,27 @@ function handleLegacyMessage(config: WorkerConfig): void {
         }
       })();
 
-      cleanup.then(() => {
-        if (process.send) {
-          const fallbackTimer: ReturnType<typeof setTimeout> = setTimeout(
-            () => {
-              process.exit(0);
-            },
-            IPC_FLUSH_TIMEOUT_MS,
-          );
+      cleanup
+        .then(() => {
+          if (process.send) {
+            const fallbackTimer: ReturnType<typeof setTimeout> = setTimeout(
+              () => {
+                process.exit(0);
+              },
+              IPC_FLUSH_TIMEOUT_MS,
+            );
 
-          process.send(result, () => {
-            clearTimeout(fallbackTimer);
+            process.send(result, () => {
+              clearTimeout(fallbackTimer);
+              process.exit(0);
+            });
+          } else {
             process.exit(0);
-          });
-        } else {
-          process.exit(0);
-        }
-      }).catch(() => {
-        process.exit(1);
-      });
+          }
+        })
+        .catch(() => {
+          process.exit(1);
+        });
     })
     .catch((err: unknown) => {
       clearTimeout(globalSafetyTimer);
@@ -653,8 +655,10 @@ process.on(
       if (msg.type === "execute") {
         const executeMsg: ExecuteMessage = msg as ExecuteMessage;
 
-        // Per-execution safety timer: if runExecution hangs (browser stuck, VM stuck),
-        // send an error back before the pool's timeout SIGKILL-s us with no message.
+        /*
+         * Per-execution safety timer: if runExecution hangs (browser stuck, VM stuck),
+         * send an error back before the pool's timeout SIGKILL-s us with no message.
+         */
         const safetyMarginMs: number = 15000;
         const executionSafetyTimer: ReturnType<typeof setTimeout> = setTimeout(
           () => {
@@ -665,9 +669,11 @@ process.on(
                 "Synthetic monitor worker safety timeout reached. " +
                 "The script or browser cleanup took too long.",
             });
-            // Exit so the pool doesn't reuse this worker while runExecution
-            // is still in progress (would cause two concurrent executions
-            // sharing the same browser).
+            /*
+             * Exit so the pool doesn't reuse this worker while runExecution
+             * is still in progress (would cause two concurrent executions
+             * sharing the same browser).
+             */
             setTimeout(() => {
               process.exit(1);
             }, 5000); // give IPC 5s to flush the error message

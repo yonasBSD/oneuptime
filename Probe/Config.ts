@@ -41,21 +41,19 @@ if (!process.env["PROBE_KEY"]) {
 
 export const PROBE_KEY: string = process.env["PROBE_KEY"];
 
-export const PROBE_MONITORING_WORKERS: number = NumberUtil.parseNumberWithDefault(
-  {
+export const PROBE_MONITORING_WORKERS: number =
+  NumberUtil.parseNumberWithDefault({
     value: process.env["PROBE_MONITORING_WORKERS"],
     defaultValue: 1,
     min: 1,
-  },
-);
+  });
 
-export const PROBE_MONITOR_FETCH_LIMIT: number = NumberUtil.parseNumberWithDefault(
-  {
+export const PROBE_MONITOR_FETCH_LIMIT: number =
+  NumberUtil.parseNumberWithDefault({
     value: process.env["PROBE_MONITOR_FETCH_LIMIT"],
     defaultValue: 10,
     min: 1,
-  },
-);
+  });
 
 export const HOSTNAME: string = process.env["HOSTNAME"] || "localhost";
 

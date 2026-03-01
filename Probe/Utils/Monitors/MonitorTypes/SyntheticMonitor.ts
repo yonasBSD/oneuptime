@@ -70,11 +70,13 @@ export default class SyntheticMonitor {
       }
     }
 
-    // If we attempted executions but got zero results (all were skipped due to
-    // infrastructure errors like worker timeouts, OOM kills, or semaphore
-    // issues), return null to skip this entire check cycle. This prevents the
-    // monitor from flapping to the default status when the probe infrastructure
-    // is under load but the monitored service may be perfectly healthy.
+    /*
+     * If we attempted executions but got zero results (all were skipped due to
+     * infrastructure errors like worker timeouts, OOM kills, or semaphore
+     * issues), return null to skip this entire check cycle. This prevents the
+     * monitor from flapping to the default status when the probe infrastructure
+     * is under load but the monitored service may be perfectly healthy.
+     */
     if (totalExecutions > 0 && results.length === 0) {
       logger.warn(
         `Synthetic Monitor ${options?.monitorId?.toString()}: all ${totalExecutions} executions were skipped due to infrastructure issues, skipping this check cycle`,
@@ -103,9 +105,11 @@ export default class SyntheticMonitor {
     try {
       acquired = await SyntheticMonitorSemaphore.acquire(monitorIdStr);
     } catch (err: unknown) {
-      // Semaphore errors (queue full, timeout waiting for slot) are infrastructure
-      // issues, not script failures. Skip this check cycle so the monitor stays in
-      // its last known state instead of flapping to offline.
+      /*
+       * Semaphore errors (queue full, timeout waiting for slot) are infrastructure
+       * issues, not script failures. Skip this check cycle so the monitor stays in
+       * its last known state instead of flapping to offline.
+       */
       logger.error(
         `Synthetic monitor semaphore acquire failed (skipping this cycle): ${(err as Error)?.message}`,
       );
@@ -243,11 +247,13 @@ export default class SyntheticMonitor {
       scriptResult.screenshots = workerResult.screenshots;
       scriptResult.executionTimeInMS = workerResult.executionTimeInMS;
     } catch (err: unknown) {
-      // Errors thrown by the worker pool are always infrastructure issues (worker
-      // timeout, OOM kill, process crash, IPC failure) — NOT script failures.
-      // Actual script errors are returned inside WorkerResult.scriptError without
-      // throwing. Skip this check cycle so the monitor stays in its last known
-      // state instead of flapping between online and offline.
+      /*
+       * Errors thrown by the worker pool are always infrastructure issues (worker
+       * timeout, OOM kill, process crash, IPC failure) — NOT script failures.
+       * Actual script errors are returned inside WorkerResult.scriptError without
+       * throwing. Skip this check cycle so the monitor stays in its last known
+       * state instead of flapping between online and offline.
+       */
       logger.error(
         `Synthetic monitor infrastructure error (skipping this cycle): ${(err as Error)?.message || String(err)}`,
       );
