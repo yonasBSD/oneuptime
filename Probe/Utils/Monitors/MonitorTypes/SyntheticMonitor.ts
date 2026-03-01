@@ -38,12 +38,21 @@ interface WorkerResult {
   executionTimeInMS: number;
 }
 
+type ExecuteWithRetrySkipReason = "deduplication" | "infrastructure";
+
+interface ExecuteWithRetryResult {
+  response: SyntheticMonitorResponse | null;
+  skipReason?: ExecuteWithRetrySkipReason | undefined;
+}
+
 export default class SyntheticMonitor {
   public static async execute(
     options: SyntheticMonitorOptions,
   ): Promise<Array<SyntheticMonitorResponse> | null> {
     const results: Array<SyntheticMonitorResponse> = [];
     let totalExecutions: number = 0;
+    let dedupSkips: number = 0;
+    let infraSkips: number = 0;
 
     for (const browserType of options.browserTypes || []) {
       for (const screenSizeType of options.screenSizeTypes || []) {
@@ -53,7 +62,7 @@ export default class SyntheticMonitor {
           `Running Synthetic Monitor: ${options?.monitorId?.toString()}, Screen Size: ${screenSizeType}, Browser: ${browserType}`,
         );
 
-        const result: SyntheticMonitorResponse | null =
+        const retryResult: ExecuteWithRetryResult =
           await this.executeWithRetry({
             script: options.script,
             browserType: browserType,
@@ -62,25 +71,36 @@ export default class SyntheticMonitor {
             monitorId: options.monitorId,
           });
 
-        if (result) {
-          result.browserType = browserType;
-          result.screenSizeType = screenSizeType;
-          results.push(result);
+        if (retryResult.response) {
+          retryResult.response.browserType = browserType;
+          retryResult.response.screenSizeType = screenSizeType;
+          results.push(retryResult.response);
+        } else if (retryResult.skipReason === "deduplication") {
+          dedupSkips++;
+        } else if (retryResult.skipReason === "infrastructure") {
+          infraSkips++;
         }
       }
     }
 
     /*
-     * If we attempted executions but got zero results (all were skipped due to
-     * infrastructure errors like worker timeouts, OOM kills, or semaphore
-     * issues), return null to skip this entire check cycle. This prevents the
-     * monitor from flapping to the default status when the probe infrastructure
-     * is under load but the monitored service may be perfectly healthy.
+     * If we attempted executions but got zero results, return null to skip
+     * this entire check cycle. This prevents the monitor from flapping to
+     * the default status when the probe infrastructure is under load but the
+     * monitored service may be perfectly healthy.
      */
     if (totalExecutions > 0 && results.length === 0) {
-      logger.warn(
-        `Synthetic Monitor ${options?.monitorId?.toString()}: all ${totalExecutions} executions were skipped due to infrastructure issues, skipping this check cycle`,
-      );
+      if (dedupSkips > 0 && infraSkips === 0) {
+        // All skips were due to deduplication — another worker is already
+        // processing this monitor, which is normal and expected.
+        logger.debug(
+          `Synthetic Monitor ${options?.monitorId?.toString()}: all ${totalExecutions} executions skipped (already being processed by another worker), skipping this check cycle`,
+        );
+      } else {
+        logger.warn(
+          `Synthetic Monitor ${options?.monitorId?.toString()}: all ${totalExecutions} executions were skipped due to infrastructure issues (${infraSkips} infrastructure, ${dedupSkips} deduplication), skipping this check cycle`,
+        );
+      }
       return null;
     }
 
@@ -94,7 +114,7 @@ export default class SyntheticMonitor {
     retryCountOnError: number;
     currentRetry?: number;
     monitorId?: ObjectID | undefined;
-  }): Promise<SyntheticMonitorResponse | null> {
+  }): Promise<ExecuteWithRetryResult> {
     const maxRetries: number = options.retryCountOnError;
     const monitorIdStr: string | undefined =
       options.monitorId?.toString() || undefined;
@@ -113,22 +133,27 @@ export default class SyntheticMonitor {
       logger.error(
         `Synthetic monitor semaphore acquire failed (skipping this cycle): ${(err as Error)?.message}`,
       );
-      return null;
+      return { response: null, skipReason: "infrastructure" };
     }
 
     if (!acquired) {
       // This monitor is already running or queued — skip duplicate execution
-      return null;
+      return { response: null, skipReason: "deduplication" };
     }
 
     try {
-      return await this.executeWithRetryInner({
-        script: options.script,
-        browserType: options.browserType,
-        screenSizeType: options.screenSizeType,
-        retryCountOnError: maxRetries,
-        currentRetry: options.currentRetry || 0,
-      });
+      const response: SyntheticMonitorResponse | null =
+        await this.executeWithRetryInner({
+          script: options.script,
+          browserType: options.browserType,
+          screenSizeType: options.screenSizeType,
+          retryCountOnError: maxRetries,
+          currentRetry: options.currentRetry || 0,
+        });
+      return {
+        response,
+        skipReason: response ? undefined : "infrastructure",
+      };
     } finally {
       SyntheticMonitorSemaphore.release(monitorIdStr);
     }
