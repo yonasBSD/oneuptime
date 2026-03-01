@@ -168,14 +168,15 @@ async function ensureBrowser(config: WorkerConfig): Promise<Browser> {
     currentProxyServer === configProxyServer &&
     currentBrowser.isConnected()
   ) {
-    // Active health check: verify the browser can actually create pages,
-    // not just that the WebSocket connection is alive. This catches zombie
-    // browsers where the process is alive but internally broken.
+    /*
+     * Active health check: verify the browser can actually create pages,
+     * not just that the WebSocket connection is alive. This catches zombie
+     * browsers where the process is alive but internally broken.
+     */
     let isHealthy: boolean = true;
 
     try {
-      const healthContext: BrowserContext =
-        await currentBrowser.newContext();
+      const healthContext: BrowserContext = await currentBrowser.newContext();
       const healthPage: Page = await healthContext.newPage();
       await healthPage.close();
       await healthContext.close();

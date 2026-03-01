@@ -84,9 +84,11 @@ router.get(
         }
       }
 
-      // Include synthetic monitor semaphore pressure: monitors queued
-      // waiting for a browser slot indicate the probe is at capacity and
-      // Kubernetes should scale up more probe replicas.
+      /*
+       * Include synthetic monitor semaphore pressure: monitors queued
+       * waiting for a browser slot indicate the probe is at capacity and
+       * Kubernetes should scale up more probe replicas.
+       */
       const semaphoreStatus: {
         running: number;
         queued: number;
