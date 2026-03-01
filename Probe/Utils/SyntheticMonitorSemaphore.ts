@@ -1,5 +1,5 @@
 import os from "os";
-import MemoryUtil from "Common/Utils/Memory";
+import MemoryUtil from "Common/Server/Utils/Memory";
 import logger from "Common/Server/Utils/Logger";
 
 interface Waiter {
