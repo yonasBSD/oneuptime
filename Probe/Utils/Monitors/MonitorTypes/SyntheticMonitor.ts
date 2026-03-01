@@ -62,14 +62,15 @@ export default class SyntheticMonitor {
           `Running Synthetic Monitor: ${options?.monitorId?.toString()}, Screen Size: ${screenSizeType}, Browser: ${browserType}`,
         );
 
-        const retryResult: ExecuteWithRetryResult =
-          await this.executeWithRetry({
+        const retryResult: ExecuteWithRetryResult = await this.executeWithRetry(
+          {
             script: options.script,
             browserType: browserType,
             screenSizeType: screenSizeType,
             retryCountOnError: options.retryCountOnError || 0,
             monitorId: options.monitorId,
-          });
+          },
+        );
 
         if (retryResult.response) {
           retryResult.response.browserType = browserType;
@@ -91,8 +92,10 @@ export default class SyntheticMonitor {
      */
     if (totalExecutions > 0 && results.length === 0) {
       if (dedupSkips > 0 && infraSkips === 0) {
-        // All skips were due to deduplication — another worker is already
-        // processing this monitor, which is normal and expected.
+        /*
+         * All skips were due to deduplication — another worker is already
+         * processing this monitor, which is normal and expected.
+         */
         logger.debug(
           `Synthetic Monitor ${options?.monitorId?.toString()}: all ${totalExecutions} executions skipped (already being processed by another worker), skipping this check cycle`,
         );
