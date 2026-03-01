@@ -27,7 +27,6 @@ export default class BrowserUtil {
     "--disable-features=dbus", // additional D-Bus feature gate
     "--no-zygote", // skip zygote process that fails OOM score adjustments in containers
     // Memory optimization flags
-    "--single-process", // run browser in single process to reduce memory overhead
     "--disable-extensions", // no extensions needed for monitoring
     "--disable-background-networking", // disable background network requests
     "--disable-default-apps", // don't load default apps

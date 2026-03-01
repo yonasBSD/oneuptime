@@ -168,18 +168,57 @@ async function ensureBrowser(config: WorkerConfig): Promise<Browser> {
     currentProxyServer === configProxyServer &&
     currentBrowser.isConnected()
   ) {
-    executionsSinceLastLaunch++;
-    if (process.send) {
-      try {
-        process.send({
-          type: "log",
-          message: `[SyntheticMonitorWorker] Reusing warm ${config.browserType} browser (execution #${executionsSinceLastLaunch} since launch)`,
-        });
-      } catch {
-        // ignore
+    // Active health check: verify the browser can actually create pages,
+    // not just that the WebSocket connection is alive. This catches zombie
+    // browsers where the process is alive but internally broken.
+    let isHealthy: boolean = true;
+
+    try {
+      const healthContext: BrowserContext =
+        await currentBrowser.newContext();
+      const healthPage: Page = await healthContext.newPage();
+      await healthPage.close();
+      await healthContext.close();
+    } catch {
+      isHealthy = false;
+
+      if (process.send) {
+        try {
+          process.send({
+            type: "log",
+            message: `[SyntheticMonitorWorker] Warm browser failed health check, will relaunch`,
+          });
+        } catch {
+          // ignore
+        }
       }
+
+      try {
+        if (currentBrowser.isConnected()) {
+          await currentBrowser.close();
+        }
+      } catch {
+        // ignore cleanup errors
+      }
+      currentBrowser = null;
+      currentBrowserType = null;
+      currentProxyServer = null;
     }
-    return currentBrowser;
+
+    if (isHealthy && currentBrowser) {
+      executionsSinceLastLaunch++;
+      if (process.send) {
+        try {
+          process.send({
+            type: "log",
+            message: `[SyntheticMonitorWorker] Reusing warm ${config.browserType} browser (execution #${executionsSinceLastLaunch} since launch)`,
+          });
+        } catch {
+          // ignore
+        }
+      }
+      return currentBrowser;
+    }
   }
 
   // Close existing browser if type/proxy changed or browser crashed

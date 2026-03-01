@@ -10,7 +10,7 @@ interface Waiter {
 }
 
 const MEMORY_BUFFER_BYTES: number = 256 * 1024 * 1024; // 256 MB reserved for probe + OS
-const MEMORY_PER_MONITOR_BYTES: number = 250 * 1024 * 1024; // ~250 MB per fork (Node + Playwright)
+const MEMORY_PER_MONITOR_BYTES: number = 400 * 1024 * 1024; // ~400 MB per fork (Node + multi-process Playwright)
 const ACQUIRE_TIMEOUT_MS: number = 5 * 60 * 1000; // 5 minutes
 const MAX_QUEUE_DEPTH: number = 20; // max waiters in queue before rejecting
 
