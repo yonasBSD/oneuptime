@@ -564,11 +564,34 @@ router.post(
 
       logger.debug("Fetching test monitor list");
 
+      /*
+       * Atomically claim monitor tests with FOR UPDATE SKIP LOCKED to prevent
+       * duplicate test execution across concurrent probe replicas.
+       */
+      const claimedMonitorTestIds: Array<ObjectID> =
+        await MonitorTestService.claimMonitorTestsForProbing({
+          probeId: probeId,
+          limit: limit,
+        });
+
+      logger.debug(
+        `Claimed ${claimedMonitorTestIds.length} monitor tests for probing`,
+      );
+
+      if (claimedMonitorTestIds.length === 0) {
+        logger.debug("No monitor tests to probe");
+        return Response.sendEntityArrayResponse(
+          req,
+          res,
+          [],
+          new PositiveNumber(0),
+          MonitorTest,
+        );
+      }
+
       const monitorTests: Array<MonitorTest> = await MonitorTestService.findBy({
         query: {
-          monitorStepProbeResponse: QueryHelper.isNull(),
-          probeId: probeId,
-          isInQueue: true, // only get the tests which are in queue
+          _id: QueryHelper.any(claimedMonitorTestIds),
         },
         sort: {
           createdAt: SortOrder.Ascending,
@@ -589,26 +612,6 @@ router.post(
 
       logger.debug("Fetched monitor tests");
       logger.debug(monitorTests);
-
-      // update the lastMonitoredAt field of the monitors
-
-      const updatePromises: Array<Promise<void>> = [];
-
-      for (const monitorTest of monitorTests) {
-        updatePromises.push(
-          MonitorTestService.updateOneById({
-            id: monitorTest.id!,
-            data: {
-              isInQueue: false, // in progress now
-            },
-            props: {
-              isRoot: true,
-            },
-          }),
-        );
-      }
-
-      await Promise.all(updatePromises);
 
       logger.debug("Populating secrets");
       logger.debug(monitorTests);

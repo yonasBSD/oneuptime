@@ -2,10 +2,11 @@ import URL from "Common/Types/API/URL";
 import ObjectID from "Common/Types/ObjectID";
 import logger from "Common/Server/Utils/Logger";
 import Port from "Common/Types/Port";
+import NumberUtil from "Common/Utils/Number";
 
 if (!process.env["PROBE_INGEST_URL"] && !process.env["ONEUPTIME_URL"]) {
   logger.error("PROBE_INGEST_URL or ONEUPTIME_URL is not set");
-  process.exit();
+  process.exit(1);
 }
 
 export let PROBE_INGEST_URL: URL = URL.fromString(
@@ -35,54 +36,56 @@ export const PROBE_ID: ObjectID | null = process.env["PROBE_ID"]
 
 if (!process.env["PROBE_KEY"]) {
   logger.error("PROBE_KEY is not set");
-  process.exit();
+  process.exit(1);
 }
 
 export const PROBE_KEY: string = process.env["PROBE_KEY"];
 
-let probeMonitoringWorkers: string | number =
-  process.env["PROBE_MONITORING_WORKERS"] || 1;
+export const PROBE_MONITORING_WORKERS: number = NumberUtil.parseNumberWithDefault(
+  {
+    value: process.env["PROBE_MONITORING_WORKERS"],
+    defaultValue: 1,
+    min: 1,
+  },
+);
 
-if (typeof probeMonitoringWorkers === "string") {
-  probeMonitoringWorkers = parseInt(probeMonitoringWorkers);
-}
-
-export const PROBE_MONITORING_WORKERS: number = probeMonitoringWorkers;
-
-let monitorFetchLimit: string | number =
-  process.env["PROBE_MONITOR_FETCH_LIMIT"] || 10;
-
-if (typeof monitorFetchLimit === "string") {
-  monitorFetchLimit = parseInt(monitorFetchLimit);
-}
-
-export const PROBE_MONITOR_FETCH_LIMIT: number = monitorFetchLimit;
+export const PROBE_MONITOR_FETCH_LIMIT: number = NumberUtil.parseNumberWithDefault(
+  {
+    value: process.env["PROBE_MONITOR_FETCH_LIMIT"],
+    defaultValue: 10,
+    min: 1,
+  },
+);
 
 export const HOSTNAME: string = process.env["HOSTNAME"] || "localhost";
 
-export const PROBE_SYNTHETIC_MONITOR_SCRIPT_TIMEOUT_IN_MS: number = process.env[
-  "PROBE_SYNTHETIC_MONITOR_SCRIPT_TIMEOUT_IN_MS"
-]
-  ? parseInt(
-      process.env["PROBE_SYNTHETIC_MONITOR_SCRIPT_TIMEOUT_IN_MS"].toString(),
-    )
-  : 60000;
+export const PROBE_SYNTHETIC_MONITOR_SCRIPT_TIMEOUT_IN_MS: number =
+  NumberUtil.parseNumberWithDefault({
+    value: process.env["PROBE_SYNTHETIC_MONITOR_SCRIPT_TIMEOUT_IN_MS"],
+    defaultValue: 60000,
+    min: 1,
+  });
 
-export const PROBE_CUSTOM_CODE_MONITOR_SCRIPT_TIMEOUT_IN_MS: number = process
-  .env["PROBE_CUSTOM_CODE_MONITOR_SCRIPT_TIMEOUT_IN_MS"]
-  ? parseInt(
-      process.env["PROBE_CUSTOM_CODE_MONITOR_SCRIPT_TIMEOUT_IN_MS"].toString(),
-    )
-  : 60000;
+export const PROBE_CUSTOM_CODE_MONITOR_SCRIPT_TIMEOUT_IN_MS: number =
+  NumberUtil.parseNumberWithDefault({
+    value: process.env["PROBE_CUSTOM_CODE_MONITOR_SCRIPT_TIMEOUT_IN_MS"],
+    defaultValue: 60000,
+    min: 1,
+  });
 
-export const PROBE_MONITOR_RETRY_LIMIT: number = process.env[
-  "PROBE_MONITOR_RETRY_LIMIT"
-]
-  ? parseInt(process.env["PROBE_MONITOR_RETRY_LIMIT"].toString())
-  : 3;
+export const PROBE_MONITOR_RETRY_LIMIT: number =
+  NumberUtil.parseNumberWithDefault({
+    value: process.env["PROBE_MONITOR_RETRY_LIMIT"],
+    defaultValue: 3,
+    min: 0,
+  });
 
 export const PORT: Port = new Port(
-  process.env["PORT"] ? parseInt(process.env["PORT"]) : 3874,
+  NumberUtil.parseNumberWithDefault({
+    value: process.env["PORT"],
+    defaultValue: 3874,
+    min: 1,
+  }),
 );
 
 /*

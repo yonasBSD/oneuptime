@@ -94,15 +94,9 @@ async function processProbeFromQueue(
       } as ProbeMonitorResponse,
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (MonitorTestService as any).updateOneById({
-      id: testId,
-      data: {
-        monitorStepProbeResponse: stepResponse,
-      },
-      props: {
-        isRoot: true,
-      },
+    await MonitorTestService.mergeStepProbeResponse({
+      testId: testId,
+      monitorStepProbeResponse: stepResponse,
     });
   } else {
     throw new BadDataException(`Invalid job type: ${jobData.jobType}`);

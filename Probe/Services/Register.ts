@@ -9,6 +9,7 @@ import {
 import OnlineCheck from "../Utils/OnlineCheck";
 import ProbeAPIRequest from "../Utils/ProbeAPIRequest";
 import HTTPMethod from "Common/Types/API/HTTPMethod";
+import HTTPErrorResponse from "Common/Types/API/HTTPErrorResponse";
 import HTTPResponse from "Common/Types/API/HTTPResponse";
 import URL from "Common/Types/API/URL";
 import { JSONObject } from "Common/Types/JSON";
@@ -96,6 +97,7 @@ export default class Register {
     // register probe with 5 retry and 15 seocnd interval between each retry.
 
     let currentRetry: number = 0;
+    let isRegistered: boolean = false;
 
     const maxRetry: number = 10;
 
@@ -106,6 +108,7 @@ export default class Register {
         logger.debug(`Registering probe. Attempt: ${currentRetry + 1}`);
         await Register._registerProbe();
         logger.debug(`Probe registered successfully.`);
+        isRegistered = true;
         break;
       } catch (error) {
         logger.error(
@@ -115,6 +118,12 @@ export default class Register {
         currentRetry++;
         await Sleep.sleep(retryIntervalInSeconds * 1000);
       }
+    }
+
+    if (!isRegistered) {
+      throw new Error(
+        `Unable to register probe after ${maxRetry} attempts. Check PROBE_KEY / REGISTER_PROBE_KEY / connectivity to ${PROBE_INGEST_URL.toString()}.`,
+      );
     }
   }
 
@@ -127,46 +136,68 @@ export default class Register {
       logger.debug("Registering Probe...");
       logger.debug("Sending request to: " + probeRegistrationUrl.toString());
 
-      const result: HTTPResponse<JSONObject> = await API.post({
-        url: probeRegistrationUrl,
-        data: {
-          probeKey: PROBE_KEY,
-          probeName: PROBE_NAME,
-          probeDescription: PROBE_DESCRIPTION,
-          registerProbeKey: RegisterProbeKey.toString(),
-        },
-        options: {
-          ...ProxyConfig.getRequestProxyAgents(probeRegistrationUrl),
-        },
-      });
+      const result: HTTPResponse<JSONObject> | HTTPErrorResponse =
+        await API.post({
+          url: probeRegistrationUrl,
+          data: {
+            probeKey: PROBE_KEY,
+            probeName: PROBE_NAME,
+            probeDescription: PROBE_DESCRIPTION,
+            registerProbeKey: RegisterProbeKey.toString(),
+          },
+          options: {
+            ...ProxyConfig.getRequestProxyAgents(probeRegistrationUrl),
+          },
+        });
 
-      if (result.isSuccess()) {
-        logger.debug("Probe Registered");
-        logger.debug(result.data);
+      if (result instanceof HTTPErrorResponse || !result.isSuccess()) {
+        const errorMessage: string =
+          result instanceof HTTPErrorResponse
+            ? result.message || JSON.stringify(result.data || {})
+            : "Unknown registration error";
 
-        const probeId: string = result.data["_id"] as string;
-
-        LocalCache.setString("PROBE", "PROBE_ID", probeId as string);
+        throw new Error(`Probe registration failed: ${errorMessage}`);
       }
+
+      logger.debug("Probe Registered");
+      logger.debug(result.data);
+
+      const probeId: string = result.data["_id"] as string;
+
+      if (!probeId) {
+        throw new Error("Probe registration succeeded but probe ID is missing");
+      }
+
+      LocalCache.setString("PROBE", "PROBE_ID", probeId as string);
     } else {
       // validate probe.
       if (!PROBE_ID) {
         logger.error("PROBE_ID or REGISTER_PROBE_KEY should be set");
-        return process.exit();
+        return process.exit(1);
       }
 
       const aliveUrl: URL = URL.fromString(
         PROBE_INGEST_URL.toString(),
       ).addRoute("/alive");
 
-      await API.post({
-        url: aliveUrl,
-        data: {
-          probeKey: PROBE_KEY.toString(),
-          probeId: PROBE_ID.toString(),
-        },
-        options: { ...ProxyConfig.getRequestProxyAgents(aliveUrl) },
-      });
+      const aliveResult: HTTPResponse<JSONObject> | HTTPErrorResponse =
+        await API.post({
+          url: aliveUrl,
+          data: {
+            probeKey: PROBE_KEY.toString(),
+            probeId: PROBE_ID.toString(),
+          },
+          options: { ...ProxyConfig.getRequestProxyAgents(aliveUrl) },
+        });
+
+      if (aliveResult instanceof HTTPErrorResponse || !aliveResult.isSuccess()) {
+        const errorMessage: string =
+          aliveResult instanceof HTTPErrorResponse
+            ? aliveResult.message || JSON.stringify(aliveResult.data || {})
+            : "Unknown alive validation error";
+
+        throw new Error(`Probe validation failed: ${errorMessage}`);
+      }
 
       LocalCache.setString("PROBE", "PROBE_ID", PROBE_ID.toString() as string);
     }

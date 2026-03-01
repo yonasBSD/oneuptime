@@ -1,4 +1,5 @@
 import os from "os";
+import MemoryUtil from "Common/Utils/Memory";
 import logger from "Common/Server/Utils/Logger";
 
 interface Waiter {
@@ -20,10 +21,12 @@ class SyntheticMonitorSemaphore {
   private activeMonitorIds: Set<string> = new Set();
 
   private calculateMaxSlots(): number {
-    const free: number = os.freemem();
-    const usable: number = free - MEMORY_BUFFER_BYTES;
+    const availableMemory: number =
+      MemoryUtil.getContainerAwareAvailableMemoryInBytes();
+    const usable: number = availableMemory - MEMORY_BUFFER_BYTES;
     const slots: number = Math.floor(usable / MEMORY_PER_MONITOR_BYTES);
-    return Math.max(2, slots); // always allow at least 2 concurrent monitors, even if memory is low, to avoid complete service disruption (with the risk of OOM)
+    // Always allow at least one monitor so probing continues under pressure.
+    return Math.max(1, slots);
   }
 
   /**
